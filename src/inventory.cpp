@@ -471,8 +471,8 @@ bool Inventory::windowClick(User* user, int8_t windowID, int16_t slot, int8_t ri
     if (user->inventoryHolding.getType() != -1)
     {
       Mineserver::get()->map(user->pos.map)->createPickupSpawn((int)user->pos.x, (int)user->pos.y, (int)user->pos.z,
-          user->inventoryHolding.getType(), user->inventoryHolding.getCount(),
-          user->inventoryHolding.getHealth(), user, false);
+      user->inventoryHolding.getType(), user->inventoryHolding.getCount(),
+      user->inventoryHolding.getHealth(), user, false);
       user->inventoryHolding.setType(-1);
     }
     return true;
@@ -762,7 +762,7 @@ bool Inventory::windowClick(User* user, int8_t windowID, int16_t slot, int8_t ri
     }
 
   }
-  else if (user->inventoryHolding.getType() == -1)
+  else if (user->inventoryHolding.getType() == -1 && !shift)
   {
     //If accessing crafting output slot, remove from input!
     if (slotItem->getType() != -1 && (windowID == WINDOW_WORKBENCH || windowID == WINDOW_PLAYER) && slot == 0)
@@ -819,7 +819,7 @@ bool Inventory::windowClick(User* user, int8_t windowID, int16_t slot, int8_t ri
   else
   {
     //Swap items if holding something and clicking another, not with craft slot
-    if ((windowID != WINDOW_WORKBENCH && windowID != WINDOW_PLAYER) || slot != 0)
+    if ((windowID != WINDOW_WORKBENCH && windowID != WINDOW_PLAYER) && slot != 0)
     {
       int16_t type = slotItem->getType();
       int8_t count = slotItem->getCount();
@@ -837,12 +837,98 @@ bool Inventory::windowClick(User* user, int8_t windowID, int16_t slot, int8_t ri
   setSlot(user, windowID, slot, slotItem->getType(), slotItem->getCount(), slotItem->getHealth());
 
   //Update item on the cursor
-  //TODO Shift klick
-  /*
   if(shift != 0)
   {
+    switch(windowID)
+    {
+      case WINDOW_PLAYER:
+        // held items / craft section -> main inventory
+        if((36 <= slot && slot <= 44) || (1 <= slot && slot <= 8))
+        {
+  	      uint8_t count = slotItem->getCount();
+
+          // Look out for the item
+          for(uint8_t i = 9; i <= 35 && count; i++)
+          {
+            if(user->inv[i].getType() == slotItem->getType() && user->inv[i].getHealth() == slotItem->getHealth() && user->inv[i].getCount() < 64)
+            {
+              // The discovered stack has sufficient space left
+              if(count + user->inv[i].getCount() <= 64)
+              {
+                user->inv[i].decCount(-count);
+                slotItem->setCount(0);
+                count = 0;
+                break;
+              } 
+              // Make stack complete and look for others
+              else
+              {
+                count -= 64 - user->inv[i].getCount();
+                slotItem->decCount(64 - user->inv[i].getCount());
+                user->inv[i].setCount(64);
+              }
+            }
+          }
+
+          // Look out for an empty slot
+          for(uint8_t i = 9; i <= 35 && count; i++)
+          {
+            if(user->inv[i].getType() == -1)
+            {
+              user->inv[i].setType(slotItem->getType());
+              user->inv[i].setCount(slotItem->getCount());
+              user->inv[i].setHealth(slotItem->getHealth());
+              slotItem->setCount(0);
+              break;
+            }
+          }
+        }
+        // main inventory -> held items
+        else if(9 <= slot && slot <= 35)
+        {
+  	      uint8_t count = slotItem->getCount();
+
+          // Look out for the item
+          for(uint8_t i = 36; i <= 44; i++)
+          {
+            if(user->inv[i].getType() == slotItem->getType() && user->inv[i].getHealth() == slotItem->getHealth() && user->inv[i].getCount() < 64)
+            {
+              // The discovered stack has sufficient space left
+              if(count + user->inv[i].getCount() <= 64)
+              {
+                user->inv[i].decCount(-count);
+                slotItem->decCount(count);
+                count = 0;
+                break;
+              } 
+              // Make stack complete and look for others
+              else
+              {
+                count -= 64 - user->inv[i].getCount();
+                slotItem->decCount(64 - user->inv[i].getCount());
+                user->inv[i].setCount(64);
+              }
+            }
+          }
+
+          // Look out for an empty slot
+          for(uint8_t i = 36; i <= 44 && count; i++)
+          {
+            if(user->inv[i].getType() == -1)
+            {
+              user->inv[i].setType(slotItem->getType());
+              user->inv[i].setCount(slotItem->getCount());
+              user->inv[i].setHealth(slotItem->getHealth());
+              slotItem->setCount(0);
+              break;
+            }
+          }
+        }
+        break;
+        // TODO: shift click for other windows
+    }
   }
-  else*/
+  else
 	setSlot(user, WINDOW_CURSOR, 0, user->inventoryHolding.getType(), user->inventoryHolding.getCount(), user->inventoryHolding.getHealth());
 
 
@@ -1073,6 +1159,35 @@ bool Inventory::addItems(User* user, int16_t itemID, int16_t count, int16_t heal
 
   for (uint8_t i = 36 - 9; i < 36 - 9 || checkingTaskbar; i++)
   {
+/*
+	// check whether the item already is somewhere in the main slots
+	for(uint8_t j = 9; j <= 35; j++)
+	{
+	  Item* slot = &user->inv[j];
+	  if(slot->getType() == itemID)
+	  {
+        //Put to the stack
+        if (64 - slot->getCount() >= count)
+        {
+          slot->decCount(-count);
+		  count = 0;
+          break;
+        }
+        //Put some of the items to this stack and continue searching for space
+        else if (slot->getCount() < 64)
+        {
+          slot->setType(itemID);
+          count -= 64 - slot->getCount();
+          slot->setCount(64);
+        }
+	  }
+	}
+
+	// Exit loop if all the items are stored somewhere already
+	if(count == 0)
+	  break;
+    */
+	
     //First, the "task bar"
     if (i == 36)
     {
@@ -1105,7 +1220,7 @@ bool Inventory::addItems(User* user, int16_t itemID, int16_t count, int16_t heal
           break;
         }
         //Put some of the items to this stack and continue searching for space
-        else if (64 - slot->getCount() > 0)
+        else if (slot->getCount() < 64)
         {
           slot->setType(itemID);
           count -= 64 - slot->getCount();
