@@ -293,12 +293,11 @@ void timer200Function()
       float incx = sin((yaw*PI)/180)* forward;
       x-=incx; z+=incz;
 
+      fallMob(&x,&y,&z,w); // Even if they dont move, make them fall
       if(moveSuitable(&x,&y,&z,w))
       {
-        fallMob(&x,&y,&z,w);
         mineserver->mob.moveMobW(MyMobs[i]->ID,x,y,z,w);
       }
-      fallMob(&x,&y,&z,w); // Even if they dont move, make them fall
     }
     mineserver->mob.setLook(MyMobs[i]->ID, yaw, pitch);
 
