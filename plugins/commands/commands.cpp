@@ -33,6 +33,7 @@
 #include <stdint.h>
 #include <cstdlib>
 #include <ctime>
+#include <algorithm>
 
 #include "tr1.h"
 #include TR1INCLUDE(unordered_map)
@@ -69,6 +70,37 @@ std::string dtos(double n)
   std::ostringstream result;
   result << n;
   return result.str();
+}
+
+/**
+ * C++ version 0.4 std::string style "itoa":
+ * Contributions from Stuart Lowe, Ray-Yuan Sheu,
+ * Rodrigo de Salvo Braz, Luc Gallant, John Maloney
+ * and Brian Hunt
+ */
+std::string itoa(int value, int base) {
+
+    std::string buf;
+
+    // check that the base if valid
+    if (base < 2 || base > 16) return buf;
+
+    enum { kMaxDigits = 35 };
+    buf.reserve( kMaxDigits ); // Pre-allocate enough space.
+
+    int quotient = value;
+
+    // Translating number to string with base:
+    do {
+        buf += "0123456789abcdef"[ std::abs( quotient % base ) ];
+        quotient /= base;
+    } while ( quotient );
+
+    // Append the negative sign
+    if ( value < 0) buf += '-';
+
+    std::reverse( buf.begin(), buf.end() );
+    return buf;
 }
 
 typedef void (*CommandCallback)(std::string nick, std::string, std::deque<std::string>);
@@ -766,9 +798,11 @@ void sendHelp(std::string user, std::string command, std::deque<std::string> arg
   const uint8_t commandsPerPage = 9; // 10 will fit nicely, -1 for the help title menu
   const uint8_t maxLineLength = 62; // Makes one command per line with longer lines cut and we add ...
   const uint8_t numPages = (commandList->size() + commandsPerPage - 1) / commandsPerPage;
-  char buffer[33];
-  char buffer2[33];
-  itoa(numPages, buffer,  10);
+  // char buffer[33];
+  // char buffer2[33];
+  // itoa(numPages, buffer,  10);
+  std::string buffer = itoa(numPages, 10);
+  std::string buffer2;
 
   if (args.size() == 0 || atoi(args.front().c_str()) != 0 )
   {
@@ -784,14 +818,14 @@ void sendHelp(std::string user, std::string command, std::deque<std::string> arg
       {
         currentPage = atoi(args.front().c_str());
       }
-      itoa(currentPage, buffer2,  10);
+      buffer2 = itoa(currentPage,  10);
 
       //Help Menu Title
       std::string msg = MC_COLOR_YELLOW + "------ Help Menu ------ Page " + buffer2 + " of " + buffer + " ------";
       mineserver->chat.sendmsgTo(user.c_str(), msg.c_str());
 
       //List Commands
-      uint16_t count = 1; 
+      uint16_t count = 1;
       for(CommandList::iterator it = commandList->begin(); it != commandList->end(); ++it)
       {
 
