@@ -105,24 +105,20 @@ bool BlockBed::onPlace(User* user, int16_t newblock, int32_t x, int8_t y, int32_
   switch (direction)
   {
   case BLOCK_EAST:
-    direction = BLOCK_SOUTH;
-	zMod = -1;
-	xMod = 0;
+    direction = SEND_BLOCK_SOUTH;
+	  xMod = -1;
     break;
-  case BLOCK_BOTTOM:
-    direction = BLOCK_EAST;
-	zMod = 0;
-	xMod = +1;
+  case BLOCK_WEST:
+    direction = SEND_BLOCK_WEST;
+	  xMod = +1;
     break;
   case BLOCK_NORTH:
-    direction = BLOCK_NORTH;
-	zMod = 0;
-	xMod = -1;
+    direction = SEND_BLOCK_EAST;
+	  zMod = +1;
     break;
   case BLOCK_SOUTH:
-    direction = BLOCK_BOTTOM;
-	zMod = +1;
-	xMod = 0;
+    direction = SEND_BLOCK_NORTH;
+	  zMod = -1;
     break;
   }
 

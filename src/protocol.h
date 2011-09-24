@@ -352,5 +352,13 @@ class Protocol
       ret << (int8_t)PACKET_EXPLOSION << (double)centerX << (double)centerY << (double)centerZ << (float)radius << (int32_t)count;
       return ret;
     }
+	    
+    // Sound Effect (http://mc.kev009.com/Protocol#Sound_effect_.280x3D.29)
+    static Packet soundEffect( int32_t effectID, int32_t x, int8_t y, int8_t z, int32_t soundData = 0 )
+    {
+      Packet ret;
+      ret << (int8_t)PACKET_SOUND_EFFECT << (int32_t)effectID << (int32_t)x << (int8_t)y << (int32_t)z << (int32_t)soundData;
+      return ret;
+    }
 };
 #endif

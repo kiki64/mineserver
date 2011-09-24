@@ -605,10 +605,10 @@ bool translateDirection(int32_t *x, int8_t *y, int32_t *z, int8_t direction)
     {
       case BLOCK_BOTTOM: (*y)--;  break;
       case BLOCK_TOP:    (*y)++;  break;
-      case BLOCK_NORTH:  (*x)++;  break;
-      case BLOCK_SOUTH:  (*x)--;  break;
-      case BLOCK_EAST:   (*z)++;  break;
-      case BLOCK_WEST:   (*z)--;  break;
+      case BLOCK_NORTH:  (*z)--;  break;
+      case BLOCK_SOUTH:  (*z)++;  break;
+      case BLOCK_EAST:   (*x)++;  break;
+      case BLOCK_WEST:   (*x)--;  break;
       default:                    break;
     }
   return true;

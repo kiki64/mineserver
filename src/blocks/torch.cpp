@@ -136,6 +136,25 @@ bool BlockTorch::onPlace(User* user, int16_t newblock, int32_t x, int8_t y, int3
     revertBlock(user, x, y, z, map);
     return true;
   }
+  
+  switch (direction)
+  {
+  case BLOCK_TOP:
+    direction = 0;
+    break;
+  case BLOCK_EAST:
+    direction = 1;
+    break;
+  case BLOCK_WEST:
+    direction = 2;
+    break;
+  case BLOCK_NORTH:
+    direction = 4;
+    break;
+  case BLOCK_SOUTH:
+    direction = 3;
+    break;
+  }
 
   Mineserver::get()->map(map)->setBlock(x, y, z, (char)newblock, direction);
   Mineserver::get()->map(map)->sendBlockChange(x, y, z, (char)newblock, direction);

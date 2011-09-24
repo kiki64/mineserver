@@ -92,16 +92,16 @@ bool BlockBasic::translateDirection(int32_t* x, int8_t* y, int32_t* z, int map, 
     switch (direction)
     {
     case BLOCK_SOUTH:
-      *x -= 1;
-      break;
-    case BLOCK_NORTH:
-      *x += 1;
-      break;
-    case BLOCK_EAST:
       *z += 1;
       break;
-    case BLOCK_WEST:
+    case BLOCK_NORTH:
       *z -= 1;
+      break;
+    case BLOCK_EAST:
+      *x += 1;
+      break;
+    case BLOCK_WEST:
+      *x -= 1;
       break;
     case BLOCK_TOP:
       *y += 1;

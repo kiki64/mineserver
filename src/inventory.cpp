@@ -1265,6 +1265,8 @@ bool Inventory::onwindowOpen(User* user, int8_t type, int32_t x, int32_t y, int3
   {
   case WINDOW_CHEST:
   case WINDOW_LARGE_CHEST:
+      //Chest Open Animation
+    user->buffer << Protocol::blockAction( x, y, z, 1, 1 ) << Protocol::soundEffect( 1003, x, y, z ); // For double chests only right side facing front will open chest animation
     pinv = &openChests;
     break;
   case WINDOW_FURNACE:
@@ -1313,6 +1315,8 @@ bool Inventory::onwindowClose(User* user, int8_t type, int32_t x, int32_t y, int
   {
   case WINDOW_CHEST:
   case WINDOW_LARGE_CHEST:
+  //Chest Close Animation
+      user->buffer << Protocol::blockAction( x, y, z, 1, 0 ) << Protocol::soundEffect( 1003, x, y, z );
     pinv = &openChests;
     break;
   case WINDOW_FURNACE:
