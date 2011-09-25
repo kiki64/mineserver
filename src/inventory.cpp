@@ -654,7 +654,7 @@ bool Inventory::windowClick(User* user, int8_t windowID, int16_t slot, int8_t ri
   bool workbenchCrafting = false;
   bool playerCrafting    = false;
 
-  if (windowID == WINDOW_PLAYER && slot >= 5 && slot <= 8)
+  if (windowID == WINDOW_PLAYER && slot >= 5 && slot <= 8 && !shift)
   {
     // Armour slots are a strange case. Only a quantity of one should be allowed, so this must be checked for.
     if (slotItem->getType() == -1 && user->inventoryHolding.getType() > 0)
@@ -819,7 +819,7 @@ bool Inventory::windowClick(User* user, int8_t windowID, int16_t slot, int8_t ri
   else
   {
     //Swap items if holding something and clicking another, not with craft slot
-    if ((windowID != WINDOW_WORKBENCH && windowID != WINDOW_PLAYER) && slot != 0)
+    if (((windowID != WINDOW_WORKBENCH && windowID != WINDOW_PLAYER) || slot != 0) && !shift)
     {
       int16_t type = slotItem->getType();
       int8_t count = slotItem->getCount();
@@ -837,12 +837,12 @@ bool Inventory::windowClick(User* user, int8_t windowID, int16_t slot, int8_t ri
   setSlot(user, windowID, slot, slotItem->getType(), slotItem->getCount(), slotItem->getHealth());
 
   //Update item on the cursor
-  if(shift != 0)
+  if(shift)
   {
     switch(windowID)
     {
       case WINDOW_PLAYER:
-        // held items / craft section -> main inventory
+        // held items / craft section / armor -> main inventory
         if((36 <= slot && slot <= 44) || (1 <= slot && slot <= 8))
         {
   	      uint8_t count = slotItem->getCount();
@@ -1154,52 +1154,44 @@ bool Inventory::isSpace(User* user, int16_t itemID, char count)
 
 
 bool Inventory::addItems(User* user, int16_t itemID, int16_t count, int16_t health)
-{
-  bool checkingTaskbar = true;
-
-  for (uint8_t i = 36 - 9; i < 36 - 9 || checkingTaskbar; i++)
+{ 
+  // Look out for the item, at first at the held items
+  for(uint8_t i = 36; count; i++)
   {
-/*
-	// check whether the item already is somewhere in the main slots
-	for(uint8_t j = 9; j <= 35; j++)
-	{
-	  Item* slot = &user->inv[j];
-	  if(slot->getType() == itemID)
-	  {
-        //Put to the stack
-        if (64 - slot->getCount() >= count)
-        {
-          slot->decCount(-count);
-		  count = 0;
-          break;
-        }
-        //Put some of the items to this stack and continue searching for space
-        else if (slot->getCount() < 64)
-        {
-          slot->setType(itemID);
-          count -= 64 - slot->getCount();
-          slot->setCount(64);
-        }
-	  }
-	}
+    Item* slot = &user->inv[i];
 
-	// Exit loop if all the items are stored somewhere already
-	if(count == 0)
-	  break;
-    */
-	
-    //First, the "task bar"
-    if (i == 36)
+    if(slot->getType() == itemID && slot->getHealth() == health && slot->getCount() < 64)
     {
-      checkingTaskbar = false;
-      i = 0;
+      // The discovered stack has sufficient space left
+      if(count + slot->getCount() <= 64)
+      {
+        slot->decCount(-count);
+        count = 0;
+        break;
+      } 
+      // Make stack complete and look for others
+      else
+      {
+        count -= 64 - slot->getCount();
+        slot->setCount(64);
+      }
     }
 
-    //The main slots are in range 9-44
-    Item* slot = &user->inv[i + 9];
+    // Jump to main inventory
+    if(i == 44)
+      i = 8;
 
-    //If slot empty, put item there
-    if (slot->getType() == -1)
+    // All slots have been checked, exit loop
+    if(i == 35)
+      break;
+  }
+
+  // Look out for an empty slot, at first at the held items
+  for(uint8_t i = 36; count; i++)
+  {
+    Item* slot = &user->inv[i];
+
+    if(slot->getType() == -1)
     {
       slot->setType(itemID);
       slot->setCount(count);
@@ -1207,27 +1199,13 @@ bool Inventory::addItems(User* user, int16_t itemID, int16_t count, int16_t heal
       break;
     }
 
-    //If same item type
-    if (slot->getType() == itemID)
-    {
-      if (slot->getHealth() == health)
-      {
-        //Put to the stack
-        if (64 - slot->getCount() >= count)
-        {
-          slot->setType(itemID);
-          slot->decCount(-count);
-          break;
-        }
-        //Put some of the items to this stack and continue searching for space
-        else if (slot->getCount() < 64)
-        {
-          slot->setType(itemID);
-          count -= 64 - slot->getCount();
-          slot->setCount(64);
-        }
-      }
-    }
+    // Jump to main inventory
+    if(i == 44)
+      i = 8;
+
+    // All slots have been checked, exit loop
+    if(i == 35)
+      break;
   }
 
   return true;
@@ -1265,8 +1243,6 @@ bool Inventory::onwindowOpen(User* user, int8_t type, int32_t x, int32_t y, int3
   {
   case WINDOW_CHEST:
   case WINDOW_LARGE_CHEST:
-      //Chest Open Animation
-    user->buffer << Protocol::blockAction( x, y, z, 1, 1 ) << Protocol::soundEffect( 1003, x, y, z ); // For double chests only right side facing front will open chest animation
     pinv = &openChests;
     break;
   case WINDOW_FURNACE:
@@ -1315,8 +1291,6 @@ bool Inventory::onwindowClose(User* user, int8_t type, int32_t x, int32_t y, int
   {
   case WINDOW_CHEST:
   case WINDOW_LARGE_CHEST:
-  //Chest Close Animation
-      user->buffer << Protocol::blockAction( x, y, z, 1, 0 ) << Protocol::soundEffect( 1003, x, y, z );
     pinv = &openChests;
     break;
   case WINDOW_FURNACE:
