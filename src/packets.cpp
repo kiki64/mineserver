@@ -82,7 +82,7 @@ void PacketHandler::init()
   packets[PACKET_ANIMATION]                = Packets(5, &PacketHandler::arm_animation);
   packets[PACKET_PICKUP_SPAWN]             = Packets(22, &PacketHandler::pickup_spawn);
   packets[PACKET_DISCONNECT]               = Packets(PACKET_VARIABLE_LEN, &PacketHandler::disconnect);
-  packets[PACKET_RESPAWN]                  = Packets(0, &PacketHandler::respawn);
+  packets[PACKET_RESPAWN]                  = Packets(13, &PacketHandler::respawn);
   packets[PACKET_WINDOW_CLICK]             = Packets(PACKET_VARIABLE_LEN, &PacketHandler::inventory_change);
   packets[PACKET_CLOSE_WINDOW]             = Packets(1, &PacketHandler::inventory_close);
   packets[PACKET_UPDATE_SIGN]              = Packets(PACKET_VARIABLE_LEN, &PacketHandler::change_sign);
@@ -294,9 +294,7 @@ int PacketHandler::login_request(User* user)
     }
 
   int32_t version;
-  std::string player, passwd;
-  int64_t mapseed;
-  int8_t dimension;
+  std::string player;
 
   // As of version 1.8 these are the only two values that are sent.
   user->buffer >> version >> player;
@@ -313,7 +311,7 @@ int PacketHandler::login_request(User* user)
     player.append("_");
   }
 
-  LOG(INFO, "Packets", "Player " + dtos(user->UID) + " login v." + dtos(version) + " : " + player + ":" + passwd);
+  LOG(INFO, "Packets", "Player " + dtos(user->UID) + " login v." + dtos(version) + " : " + player);
 
   user->nick = player;
 
@@ -614,7 +612,7 @@ int PacketHandler::player_digging(User* user)
     }
     break;
   }
-  case BLOCK_STATUS_DIGGING:
+  /*case BLOCK_STATUS_DIGGING:
   {
     (static_cast<Hook5<bool, const char*, int32_t, int8_t, int32_t, int8_t>*>(Mineserver::get()->plugin()->getHook("PlayerDigging")))->doAll(user->nick.c_str(), x, y, z, direction);
     (static_cast<Hook4<bool, const char*, int32_t, int8_t, int32_t>*>(Mineserver::get()->plugin()->getHook("PlayerDigging")))->doAll(user->nick.c_str(), x, y, z);
@@ -629,7 +627,7 @@ int PacketHandler::player_digging(User* user)
 
     break;
   }
-  /*    case BLOCK_STATUS_STOPPED_DIGGING:
+      case BLOCK_STATUS_STOPPED_DIGGING:
       {
         (static_cast<Hook5<bool,const char*,int32_t,int8_t,int32_t,int8_t>*>(Mineserver::get()->plugin()->getHook("PlayerDiggingStopped")))->doAll(user->nick.c_str(), x, y, z, direction);
         for(uint32_t i =0 ; i<Mineserver::get()->plugin()->getBlockCB().size(); i++)
@@ -1324,9 +1322,15 @@ int PacketHandler::use_entity(User* user)
 
 int PacketHandler::respawn(User* user)
 {
+  int8_t world, difficulty, mode;
+  int16_t height;
+  int64_t mapseed;
+
+  user->buffer >> world >> difficulty >> mode >> height >> mapseed;
+
+  user->buffer.removePacket();
   user->dropInventory();
   user->respawn();
-  user->buffer.removePacket();
   return PACKET_OK;
 }
 

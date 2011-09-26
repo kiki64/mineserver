@@ -109,7 +109,7 @@ int BlockNote::getInstrument(int32_t x, int8_t y, int32_t z, int map)
     return INSTRUMENT_BASS;
   case BLOCK_SAND:
   case BLOCK_GRAVEL:
-  case BLOCK_SLOW_SAND:
+  case BLOCK_SOUL_SAND:
     return INSTRUMENT_SNARE;
   case BLOCK_GLASS:
   case BLOCK_GLOWSTONE:
@@ -118,7 +118,7 @@ int BlockNote::getInstrument(int32_t x, int8_t y, int32_t z, int map)
   case BLOCK_COBBLESTONE:
   case BLOCK_BRICK:
   case BLOCK_OBSIDIAN:
-  case BLOCK_NETHERSTONE:
+  case BLOCK_NETHERRACK:
   case BLOCK_IRON_ORE:
   case BLOCK_DIAMOND_ORE:
   case BLOCK_GOLD_ORE:

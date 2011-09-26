@@ -1540,7 +1540,7 @@ int16_t Inventory::itemHealth(int16_t itemID, int8_t block, bool& rightUse)
     case BLOCK_DIAMOND_ORE:
     case BLOCK_OBSIDIAN:
     case BLOCK_GLOWSTONE:
-    case BLOCK_NETHERSTONE:
+    case BLOCK_NETHERRACK:
     case BLOCK_WOODEN_STAIRS:
     case BLOCK_COBBLESTONE_STAIRS:
     case BLOCK_IRON_DOOR:

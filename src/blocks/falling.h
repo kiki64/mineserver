@@ -41,7 +41,7 @@ class BlockFalling: public BlockBasic
 {
 public:
   inline bool affectedBlock(int block) const { 
-  						if((block == BLOCK_SAND) || (block == BLOCK_SLOW_SAND) || (block == BLOCK_GRAVEL))
+  						if((block == BLOCK_SAND) || (block == BLOCK_SOUL_SAND) || (block == BLOCK_GRAVEL))
 	  						return true; 
 	  					else
 	  						return false;

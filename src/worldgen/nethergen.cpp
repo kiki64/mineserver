@@ -258,7 +258,7 @@ void NetherGen::generateWithNoise(int x, int z, int map)
         }
         if (bY > ciel)
         {
-          *curBlock = BLOCK_NETHERSTONE;
+          *curBlock = BLOCK_NETHERRACK;
           continue;
         }
 
@@ -267,20 +267,20 @@ void NetherGen::generateWithNoise(int x, int z, int map)
         {
           if (bY < stoneHeight)
           {
-            *curBlock = BLOCK_NETHERSTONE;
+            *curBlock = BLOCK_NETHERRACK;
             // Add caves
             //            cave.AddCaves(*curBlock, xBlockpos + bX, bY, zBlockpos + bZ, map);
           }
           else
           {
-            *curBlock = BLOCK_NETHERSTONE;
+            *curBlock = BLOCK_NETHERRACK;
           }
         }
         else if (currentHeight == bY)
         {
           if (bY == seaLevel || bY == seaLevel - 1 || bY == seaLevel - 2)
           {
-            *curBlock = BLOCK_SLOW_SAND;  // FF
+            *curBlock = BLOCK_SOUL_SAND;  // FF
           }
           else if (bY < seaLevel - 1)
           {
@@ -288,7 +288,7 @@ void NetherGen::generateWithNoise(int x, int z, int map)
           }
           else
           {
-            *curBlock = BLOCK_NETHERSTONE;  // FF
+            *curBlock = BLOCK_NETHERRACK;  // FF
           }
         }
         else
@@ -435,7 +435,7 @@ void NetherGen::AddOre(int x, int z, int map, uint8_t type)
 
     Mineserver::get()->map(map)->getBlock(blockX, blockY, blockZ, &block, &meta);
     // No ore in caves
-    if (block != BLOCK_NETHERSTONE)
+    if (block != BLOCK_NETHERRACK)
     {
       continue;
     }

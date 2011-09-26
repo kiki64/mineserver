@@ -84,8 +84,8 @@ void initConstants()
   BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_GLOWSTONE, DropPtr(new Drop(ITEM_GLOWSTONE_DUST, 10000, 1))));
   BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_BRICK, DropPtr(new Drop(ITEM_CLAY_BRICK, 10000, 1))));
   BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_JUKEBOX, DropPtr(new Drop(BLOCK_JUKEBOX, 10000, 1))));
-  BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_NETHERSTONE, DropPtr(new Drop(BLOCK_NETHERSTONE, 10000, 1))));
-  BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_SLOW_SAND, DropPtr(new Drop(BLOCK_SLOW_SAND, 10000, 1))));
+  BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_NETHERRACK, DropPtr(new Drop(BLOCK_NETHERRACK, 10000, 1))));
+  BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_SOUL_SAND, DropPtr(new Drop(BLOCK_SOUL_SAND, 10000, 1))));
   BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_JACK_O_LANTERN, DropPtr(new Drop(BLOCK_JACK_O_LANTERN, 10000, 1))));
   BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_MINECART_TRACKS, DropPtr(new Drop(BLOCK_MINECART_TRACKS, 10000, 1))));
   BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_MOSSY_COBBLESTONE, DropPtr(new Drop(BLOCK_MOSSY_COBBLESTONE, 10000, 1))));

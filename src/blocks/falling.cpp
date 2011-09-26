@@ -90,7 +90,7 @@ void BlockFalling::onNeighbourMove(User* user, int16_t oldblock, int32_t x, int8
 
   if(!Mineserver::get()->map(map)->getBlock(x, y, z, &block, &meta))
   	return;
-  if (block == BLOCK_SAND || block == BLOCK_SLOW_SAND ||block == BLOCK_GRAVEL)
+  if (block == BLOCK_SAND || block == BLOCK_SOUL_SAND ||block == BLOCK_GRAVEL)
   {
     applyPhysics(user, x, y, z, map);
   }
