@@ -892,6 +892,180 @@ void sendMOTD(std::string user, std::string command, std::deque<std::string> arg
   }
 }
 
+
+std::string *explode (std::string original, std::string exploder=".") {
+  std::string tmp;
+  tmp=original;
+  int num, loc;
+  num=1;
+  while (tmp.find(exploder)!=std::string::npos) 
+  {
+    loc=tmp.find(exploder);
+    tmp=tmp.substr(loc+exploder.length());
+    num++;
+  }
+  std::string *result;
+  result = new std::string[num];
+  num=0;
+  tmp=original;
+  while (tmp.find(exploder)!=std::string::npos)
+  {
+     loc=tmp.find(exploder);
+     result[num]=tmp.substr(0,loc);
+     tmp=tmp.substr(loc+exploder.length());
+     num++;
+  }
+  result[num]=tmp;
+  return result;
+}
+
+void warp(std::string user, std::string command, std::deque<std::string> args) 
+{
+  bool foundWarp = false;
+  std::string warps;
+  std::string line;
+  std::ifstream WARPFILE("warp.txt");
+  if (WARPFILE.is_open())
+  {
+    while (WARPFILE.good() )
+	  {
+	    std::getline(WARPFILE, line);
+	    std::string *warppoint = explode(line, ",");
+	    if(args.size() == 0)
+      {
+        std::string str_warppoint = warppoint[0];
+        if(str_warppoint.length() > 0 )
+        {
+          warps += str_warppoint;
+          warps += ", ";
+        }
+      }
+      else if(warppoint[0] == args[0])
+      {
+        foundWarp = true;
+        std::string output = "Warping to " + args[0];
+        mineserver->chat.sendmsgTo(user.c_str(), output.c_str() );
+        mineserver->user.teleport(user.c_str(), atof(warppoint[1].data()), atof(warppoint[2].data()), atof(warppoint[3].data())/*world: , warppoint[4].data()*/); 
+      } 
+	  }
+    
+    if(args.size() == 0)
+    {
+      if( warps.length() == 0 )
+      {
+        mineserver->chat.sendmsgTo(user.c_str(), "There are no warps created." );
+      }
+      else
+      {
+        warps = warps.substr( 0, warps.length() - 2 ); // remove trailing ,
+        mineserver->chat.sendmsgTo(user.c_str(), warps.c_str() );
+      }
+    }
+    else
+    {
+      if( !foundWarp )
+      {
+        std::string output = "Warp " + args[0] + " not found.";
+        mineserver->chat.sendmsgTo(user.c_str(), output.c_str() );
+      }
+    }
+
+    WARPFILE.close();
+  }
+  else
+  {
+    mineserver->chat.sendmsgTo(user.c_str(), "No Warp Entries");
+  }
+}
+
+std::string delwarp(std::string warp, bool &find_it)
+{
+  find_it = false;
+  std::string warps="";
+  std::string line;
+  std::ifstream iWarp("warp.txt");
+  if (iWarp.is_open())
+  {
+      bool first = true;
+      while (iWarp.good() )
+      {
+        std::getline(iWarp, line);
+        std::string *warppoint = explode(line, ",");
+        //Copy only the other warppoints
+        if(warppoint[0] != warp)
+        {
+          if(first)
+          {
+            warps += line;
+            first = false; 
+          }
+          else
+          {
+            warps += "\n" + line;
+          }
+        }
+        else
+        {
+          find_it = true;
+        }
+      }
+      iWarp.close();
+  }
+
+  return warps;
+}
+
+void setwarp(std::string user, std::string command, std::deque<std::string> args)
+{
+  if(args.size() == 1) 
+  {
+    double x,y,z;
+    float w;
+    mineserver->user.getPosition(user.c_str(), &x,&y,&z, NULL,NULL,NULL);
+    
+    bool found;
+    //try to del same entries
+    std::string warps = delwarp(args[0], found); 
+    //write data
+    std::ofstream oWarp("warp.txt");
+    if(oWarp.is_open())
+    {
+      oWarp << warps << args[0] << "," << x << "," << y+2 << "," << z << "\n";
+      std::string output = "Warp '" + args[0] + "' created";
+      mineserver->chat.sendmsgTo(user.c_str(), output.c_str());
+      oWarp.close();
+    }
+  }
+}
+    
+void delwarp(std::string user, std::string command, std::deque<std::string> args)
+{
+  if(args.size() == 1)
+  {
+    bool found;
+    //delete warp
+    std::string warps = delwarp(args[0], found);
+
+    if( found )
+    {
+      //write data
+      std::ofstream oWarp("warp.txt");
+      if(oWarp.is_open())
+      {
+        oWarp << warps;
+        std::string output = "Warp '" + args[0] + "' deleted.";
+        mineserver->chat.sendmsgTo(user.c_str(), output.c_str());
+        oWarp.close();
+      }
+    }
+    else
+    {
+      std::string output = "Warp '" + args[0] + "' not found.";
+      mineserver->chat.sendmsgTo(user.c_str(), output.c_str());
+    }
+  }
+}
+
 std::string pluginName = "commands";
 
 PLUGIN_API_EXPORT void CALLCONVERSION commands_init(mineserver_pointer_struct* mineserver_temp)
@@ -935,6 +1109,9 @@ PLUGIN_API_EXPORT void CALLCONVERSION commands_init(mineserver_pointer_struct* m
   registerCommand(ComPtr(new Command(parseCmd("time settime"), "<time>", "Sets the world time. (<time> = 0-24000, 0 & 24000 = day, ~15000 = night)", setTime)));
   registerCommand(ComPtr(new Command(parseCmd("tp"), "<player> [<anotherPlayer>]", "Teleport yourself to <player>'s position or <player> to <anotherPlayer>", userTeleport)));
   registerCommand(ComPtr(new Command(parseCmd("world"), "<world-id>", "Moves you between worlds", userWorld)));
+  registerCommand(ComPtr(new Command(parseCmd("warp"), "<warppoint>", "Teleport to warp", warp)));
+  registerCommand(ComPtr(new Command(parseCmd("setwarp"), "<warppoint>", "Set a warp", setwarp)));
+  registerCommand(ComPtr(new Command(parseCmd("delwarp"), "<warppoint>", "Del a warp", delwarp)));
 }
 
 PLUGIN_API_EXPORT void CALLCONVERSION commands_shutdown(void)
