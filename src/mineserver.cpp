@@ -66,8 +66,6 @@
 #include "cliScreen.h"
 #include "hook.h"
 #include "mob.h"
-#include "protocol.h"
-#include "projectileManager.h"
 //#include "minecart.h"
 #ifdef WIN32
 static bool quit = false;
@@ -226,10 +224,7 @@ int main(int argc, char* argv[])
 #endif
   }
   std::cout << "Configuration directory is \"" << Mineserver::get()->config()->config_path << "\"." << std::endl;
-
-  // create home and copy files if necessary
-  Mineserver::get()->configDirectoryPrepare(Mineserver::get()->config()->config_path);
-
+  
   // load config
   Config & config = *Mineserver::get()->config();
   if (!config.load(cfg))
@@ -238,7 +233,7 @@ int main(int argc, char* argv[])
   }
 
   LOG2(INFO, "Using config: " + cfg);
-
+  
   if (overrides.size())
   {
     std::stringstream override_config;
@@ -254,9 +249,12 @@ int main(int argc, char* argv[])
       return EXIT_FAILURE;
     }
   }
+  
+  // create home and copy files if necessary
+  Mineserver::get()->configDirectoryPrepare(Mineserver::get()->config()->config_path);
 
   bool ret = Mineserver::get()->init();
-
+  
   if (!ret)
   {
     LOG2(ERROR, "Failed to start Mineserver!");
@@ -292,8 +290,7 @@ Mineserver::Mineserver()
      m_furnaceManager(NULL),
      m_packetHandler (NULL),
      m_inventory     (NULL),
-     m_mobs          (NULL),
-     m_projectileManager(NULL)
+     m_mobs          (NULL)
 {
   memset(&m_listenEvent, 0, sizeof(event));
   initConstants();
@@ -433,7 +430,6 @@ bool Mineserver::init()
   m_packetHandler  = new PacketHandler;
   m_inventory      = new Inventory(m_config->sData("system.path.data") + '/' + "recipes", ".recipe", "ENABLED_RECIPES.cfg");
   m_mobs           = new Mobs;
-  m_projectileManager = new ProjectileManager;
 
   return true;
 }
@@ -462,7 +458,6 @@ bool Mineserver::free()
   delete m_packetHandler;
   delete m_inventory;
   delete m_mobs;
-  delete m_projectileManager;
 
   if (m_plugin)
   {
@@ -540,7 +535,6 @@ bool Mineserver::run()
       LOG2(INFO, "Generating spawn area...");
       int size = config()->iData("map.generate_spawn.size");
       bool show_progress = config()->bData("map.generate_spawn.show_progress");
-
 #ifdef __FreeBSD__
       show_progress = false;
 #endif
@@ -697,9 +691,6 @@ bool Mineserver::run()
       physics(i)->update();
     }
 
-    //Update Projectiles
-    projectileManager()->update();
-
     //Every 10 seconds..
     timeNow = time(0);
     if (timeNow - starttime > 10)
@@ -723,7 +714,7 @@ bool Mineserver::run()
       {
         // Send server time
         Packet pkt;
-        pkt << Protocol::timeUpdate( (int64_t)m_map[0]->mapTime );
+        pkt << (int8_t)PACKET_TIME_UPDATE << (int64_t)m_map[0]->mapTime;
         (*User::all().begin())->sendAll(pkt);
       }
 
@@ -766,13 +757,6 @@ bool Mineserver::run()
           (*it)->pushMap();
           (*it)->popMap();
         }
-
-        // Update Player List
-        // TODO: If someone logs off we need to send this with false.
-        //       Also calculate latency between server and client.  Replace static ping with that.
-        Packet pkt;
-        pkt << Protocol::playerListItem( (*it)->nick, true, 100);
-        (*User::all().begin())->sendAll(pkt);
 
       }
 
@@ -851,17 +835,7 @@ bool Mineserver::configDirectoryPrepare(const std::string& path)
   std::cout << std::endl
             << "configDirectoryPrepare(): target directory = \"" << path
             << "\", distribution source is \"" << distsrc << "\"." << std::endl
-            << "WARNING: This function is not implemented fully at present." << std::endl
-            << "You must check that all the necessary files are in the target directory" << std::endl
-            << "(including recipes and plugins) and that the config file is correct." << std::endl
             << std::endl;
-
-  /*
-     WARNING:
-     ========
-     kiki64's commit sort've messed things up. Someone needs to re-enable config.cfg's values for
-     target paths (home, plugins, and files paths). I have fixed the issue with windows vs. *nix.
-  */
 
   struct stat st;
   //Create Mineserver directory
@@ -876,38 +850,22 @@ bool Mineserver::configDirectoryPrepare(const std::string& path)
   }
 
   //Create recipe/plugin directories
-  // TODO: Fill in respective values with config()->sData("system.path.data")) and "system.path.plugins"
-  const std::string directories [] =
+  const std::string directories [] = 
   {
-    "plugins",
-    "files",
-#if defined(linux)
-    "files/recipes",
-    "files/recipes/armour",
-    "files/recipes/block",
-    "files/recipes/cloth",
-    "files/recipes/dyes",
-    "files/recipes/food",
-    "files/recipes/materials",
-    "files/recipes/mechanism",
-    "files/recipes/misc",
-    "files/recipes/tools",
-    "files/recipes/transport",
-    "files/recipes/weapons",
-#else
-    "files\\recipes",
-    "files\\recipes\\armour",
-    "files\\recipes\\block",
-    "files\\recipes\\cloth",
-    "files\\recipes\\dyes",
-    "files\\recipes\\food",
-    "files\\recipes\\materials",
-    "files\\recipes\\mechanism",
-    "files\\recipes\\misc",
-    "files\\recipes\\tools",
-    "files\\recipes\\transport",
-    "files\\recipes\\weapons",
-#endif
+    config()->sData("system.path.plugins"),
+    config()->sData("system.path.data"),
+    directories[1] + PATH_SEPARATOR + "recipes",
+    directories[2] + PATH_SEPARATOR + "armour",
+    directories[2] + PATH_SEPARATOR + "block",
+    directories[2] + PATH_SEPARATOR + "cloth",
+    directories[2] + PATH_SEPARATOR + "dyes",
+    directories[2] + PATH_SEPARATOR + "food",
+    directories[2] + PATH_SEPARATOR + "materials",
+    directories[2] + PATH_SEPARATOR + "mechanism",
+    directories[2] + PATH_SEPARATOR + "misc",
+    directories[2] + PATH_SEPARATOR + "tools",
+    directories[2] + PATH_SEPARATOR + "transport",
+    directories[2] + PATH_SEPARATOR + "weapons"
   };
   for (size_t i = 0; i < sizeof(directories) / sizeof(directories[0]); i++)
   {
@@ -959,18 +917,18 @@ bool Mineserver::configDirectoryPrepare(const std::string& path)
 
     if(temp[i].substr(temp[i].size() - 7).compare(".recipe") == 0)//If a recipe file
     {
-      namein  = pathOfExecutable() + PATH_SEPARATOR + "files" + PATH_SEPARATOR + "recipes" + PATH_SEPARATOR + temp[i];
-      nameout = path + PATH_SEPARATOR + "files" + PATH_SEPARATOR + "recipes" + PATH_SEPARATOR + temp[i];
+      namein  = pathOfExecutable() + PATH_SEPARATOR + directories[2] + PATH_SEPARATOR + temp[i];
+      nameout = path + PATH_SEPARATOR + directories[2] + PATH_SEPARATOR + temp[i];
     }
     else if ((temp[i].substr(temp[i].size() - 4).compare(".dll") == 0) ||
              (temp[i].substr(temp[i].size() - 3).compare(".so") == 0))
     {
-      namein  = pathOfExecutable() + PATH_SEPARATOR + "files" + PATH_SEPARATOR + "plugins" + PATH_SEPARATOR + temp[i];
-      nameout = path + PATH_SEPARATOR + "plugins" + PATH_SEPARATOR + temp[i];
+      namein  = pathOfExecutable() + PATH_SEPARATOR + directories[1] + PATH_SEPARATOR + directories[0] + PATH_SEPARATOR + temp[i];
+      nameout = path + PATH_SEPARATOR + directories[1] + PATH_SEPARATOR + temp[i];
     }
     else
     {
-      namein  = pathOfExecutable() + PATH_SEPARATOR + "files" + PATH_SEPARATOR + temp[i];
+      namein  = pathOfExecutable() + PATH_SEPARATOR + directories[1] + PATH_SEPARATOR + temp[i];
       nameout = path + PATH_SEPARATOR + temp[i];
     }
 
