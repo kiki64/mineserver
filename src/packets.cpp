@@ -173,7 +173,7 @@ int PacketHandler::change_sign(User* user)
     user->sendAll(pkt);
   }
 
-  LOG2(INFO, "Sign: " + strings1 + strings2 + strings3 + strings4);
+  //LOG2(INFO, "Sign: " + strings1 + strings2 + strings3 + strings4);
 
   //No need to do anything
   user->buffer.removePacket();
@@ -941,13 +941,6 @@ int PacketHandler::player_block_placement(User* user)
 #ifdef DEBUG
   LOG(DEBUG, "Packets", "Block_placement: " + dtos(newblock) + " (" + dtos(x) + "," + dtos((int)y) + "," + dtos(z) + ") dir: " + dtos((int)direction));
 #endif
-
-/*
-  if (direction)
-  {
-    direction = 6 - direction;
-  }
-*/
   
   //if (Mineserver::get()->map()->getBlock(x, y, z, &oldblock, &metadata))
   {

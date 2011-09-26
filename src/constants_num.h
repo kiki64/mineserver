@@ -80,16 +80,9 @@ enum
 #endif
 
 // Direction
-// Caution! When changing a block the client uses SendDirection for direction - Sept 22 2011
-// When sending us a block it uses the Direction below.
 enum Direction
 {
   BLOCK_BOTTOM, BLOCK_TOP, BLOCK_NORTH, BLOCK_SOUTH, BLOCK_WEST, BLOCK_EAST
-};
-
-enum SendDirection 
-{
-  SEND_BLOCK_BOTTOM, SEND_BLOCK_TOP, SEND_BLOCK_NORTH, SEND_BLOCK_WEST, SEND_BLOCK_EAST, SEND_BLOCK_SOUTH
 };
 
 // Blocks

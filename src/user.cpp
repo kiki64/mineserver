@@ -869,25 +869,23 @@ bool User::sendOthers(uint8_t* data, size_t len)
   return true;
 }
 
-//The client seems to use two different orders for direction
-//One way when sending us a direction and requiring a different type when recieving.
 int8_t User::relativeToBlock(const int32_t x, const int8_t y, const int32_t z)
 {
   int8_t direction;
-  double diffX, diffZ;
+  float diffX, diffZ;
   diffX = x - this->pos.x;
   diffZ = z - this->pos.z;
 
-  if (diffX > diffZ)
+  if (abs(diffX) > abs(diffZ))
   {
     // We compare on the x axis
     if (diffX > 0)
     {
-      direction = SEND_BLOCK_EAST;
+      direction = BLOCK_WEST;
     }
     else
     {
-      direction = SEND_BLOCK_WEST;
+      direction = BLOCK_EAST;
     }
   }
   else
@@ -895,11 +893,11 @@ int8_t User::relativeToBlock(const int32_t x, const int8_t y, const int32_t z)
     // We compare on the z axis
     if (diffZ > 0)
     {
-      direction = SEND_BLOCK_NORTH;
+      direction = BLOCK_NORTH;
     }
     else
     {
-      direction = SEND_BLOCK_SOUTH;
+      direction = BLOCK_SOUTH;
     }
   }
   return direction;

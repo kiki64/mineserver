@@ -109,6 +109,17 @@ bool BlockStair::onPlace(User* user, int16_t newblock, int32_t x, int8_t y, int3
   }
 
   direction = user->relativeToBlock(x, y, z);
+
+  switch( direction )
+  {
+    case BLOCK_EAST:
+      direction = BLOCK_TOP;
+      break;
+    case BLOCK_WEST:
+      direction = BLOCK_BOTTOM;
+      break;
+  }
+
   Mineserver::get()->map(map)->setBlock(x, y, z, newblock, direction);
   Mineserver::get()->map(map)->sendBlockChange(x, y, z, newblock, direction);
 

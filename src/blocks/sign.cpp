@@ -204,20 +204,19 @@ bool BlockSign::onPlace(User* user, int16_t newblock, int32_t x, int8_t y, int32
     angleDegree += 16;
   }
   newblock = BLOCK_WALL_SIGN;
-  metadata = 6 - direction;
   switch (direction)
   {
   case BLOCK_SOUTH:
-    x--;
-    break;
-  case BLOCK_NORTH:
-    x++;
-    break;
-  case BLOCK_EAST:
     z++;
     break;
-  case BLOCK_WEST:
+  case BLOCK_NORTH:
     z--;
+    break;
+  case BLOCK_EAST:
+    x++;
+    break;
+  case BLOCK_WEST:
+    x--;
     break;
   case BLOCK_TOP:
     y++;

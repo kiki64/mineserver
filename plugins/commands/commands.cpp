@@ -790,17 +790,11 @@ void about(std::string user, std::string command, std::deque<std::string> args)
 
 void sendHelp(std::string user, std::string command, std::deque<std::string> args)
 {
-  // TODO: Add paging support, since not all commands will fit into
-  // the screen at once.
-
   CommandList* commandList = &m_Commands; // defaults
   std::string commandColor = MC_COLOR_BLUE;
   const uint8_t commandsPerPage = 9; // 10 will fit nicely, -1 for the help title menu
   const uint8_t maxLineLength = 62; // Makes one command per line with longer lines cut and we add ...
   const uint8_t numPages = (commandList->size() + commandsPerPage - 1) / commandsPerPage;
-  // char buffer[33];
-  // char buffer2[33];
-  // itoa(numPages, buffer,  10);
   std::string buffer = itoa(numPages, 10);
   std::string buffer2;
 
@@ -938,7 +932,7 @@ PLUGIN_API_EXPORT void CALLCONVERSION commands_init(mineserver_pointer_struct* m
   registerCommand(ComPtr(new Command(parseCmd("rules"), "", "Displays server rules", sendRules)));
   registerCommand(ComPtr(new Command(parseCmd("save"), "", "Manually saves map to disc", saveMap)));
   registerCommand(ComPtr(new Command(parseCmd("setspawn"), "", "Sets home to your current coordinates", setSpawn)));
-  registerCommand(ComPtr(new Command(parseCmd("settime"), "<time>", "Sets the world time. (<time> = 0-24000, 0 & 24000 = day, ~15000 = night)", setTime)));
+  registerCommand(ComPtr(new Command(parseCmd("time settime"), "<time>", "Sets the world time. (<time> = 0-24000, 0 & 24000 = day, ~15000 = night)", setTime)));
   registerCommand(ComPtr(new Command(parseCmd("tp"), "<player> [<anotherPlayer>]", "Teleport yourself to <player>'s position or <player> to <anotherPlayer>", userTeleport)));
   registerCommand(ComPtr(new Command(parseCmd("world"), "<world-id>", "Moves you between worlds", userWorld)));
 }

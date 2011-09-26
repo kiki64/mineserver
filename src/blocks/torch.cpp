@@ -140,19 +140,19 @@ bool BlockTorch::onPlace(User* user, int16_t newblock, int32_t x, int8_t y, int3
   switch (direction)
   {
   case BLOCK_TOP:
-    direction = 0;
+    direction = BLOCK_BOTTOM;
     break;
   case BLOCK_EAST:
-    direction = 1;
+    direction = BLOCK_TOP;
     break;
   case BLOCK_WEST:
-    direction = 2;
+    direction = BLOCK_NORTH;
     break;
   case BLOCK_NORTH:
-    direction = 4;
+    direction = BLOCK_WEST;
     break;
   case BLOCK_SOUTH:
-    direction = 3;
+    direction = BLOCK_SOUTH;
     break;
   }
 

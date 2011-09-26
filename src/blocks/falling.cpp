@@ -158,22 +158,22 @@ void BlockFalling::applyPhysics(User* user, int32_t x, int8_t y, int32_t z, int 
       it->second->sendPacket(pkt);
     }
     
-    //is commented out
+    
     this->notifyNeighbours(x, y + 2, z, map, "onNeighbourMove", user, block, BLOCK_BOTTOM);
-    //temporary
+    
     if(!Mineserver::get()->map(map)->getBlock(x,y+2,z,&neighbour, &neighbourmeta))
     	return;
     if(!Mineserver::get()->map(map)->getBlock(x,y+1,z,&testbl, &testmet))
     	return;
     if(testbl == BLOCK_SAND)
-    	LOG(INFO, "Dfsdf", "what");
+    	//LOG(INFO, "Dfsdf", "what");
     	
     	if(neighbour == BLOCK_SAND)
-    	   LOG(INFO, "sdfasd", "sdgdfgsdg");
+    	   //LOG(INFO, "sdfasd", "sdgdfgsdg");
     for(unsigned int i = 0; i < Mineserver::get()->plugin()->getBlockCB().size(); i++)
     {
     	if(Mineserver::get()->plugin()->getBlockCB()[i]->affectedBlock(neighbour)) {
-    		LOG(INFO, "Penis", "toll");
+    		//LOG(INFO, "Penis", "toll");
     		Mineserver::get()->plugin()->getBlockCB()[i]->onNeighbourMove(user, fallblock, x, y+2, z, 1, map);
     	}
     }

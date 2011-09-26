@@ -127,25 +127,8 @@ bool BlockLadder::onPlace(User* user, int16_t newblock, int32_t x, int8_t y, int
     return true;
   }
 
-  int8_t ladderDirection = 0;
-  switch (direction)
-  {
-  case BLOCK_WEST:
-    ladderDirection = 2;
-    break;
-  case BLOCK_EAST:
-    ladderDirection = 3;
-    break;
-  case BLOCK_SOUTH:
-    ladderDirection = 4;
-    break;
-  case BLOCK_NORTH:
-    ladderDirection = 5;
-    break;
-  }
-
-  Mineserver::get()->map(map)->setBlock(x, y, z, (char)newblock, ladderDirection);
-  Mineserver::get()->map(map)->sendBlockChange(x, y, z, (char)newblock, ladderDirection);
+  Mineserver::get()->map(map)->setBlock(x, y, z, (char)newblock, direction);
+  Mineserver::get()->map(map)->sendBlockChange(x, y, z, (char)newblock, direction);
   return false;
 }
 

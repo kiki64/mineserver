@@ -106,8 +106,8 @@ bool Blockjackolantern::onPlace(User* user, int16_t newblock, int32_t x, int8_t 
   case BLOCK_EAST:
     direction = BLOCK_SOUTH;
     break;
-  case BLOCK_BOTTOM:
-    direction = BLOCK_EAST;
+  case BLOCK_WEST:
+    direction = BLOCK_TOP;
     break;
   case BLOCK_NORTH:
     direction = BLOCK_NORTH;

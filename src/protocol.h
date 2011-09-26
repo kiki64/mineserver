@@ -216,7 +216,7 @@ class Protocol
     static Packet respawn(int world = 0)
     {
       Packet ret;
-      ret << (int8_t)PACKET_RESPAWN << (int8_t)world << (int8_t)1 << (int8_t)0 << (int8_t)128 << (int64_t)0;
+      ret << (int8_t)PACKET_RESPAWN << (int8_t)world << (int8_t)1 << (int8_t)0 << (int16_t)128 << (int64_t)0;
       return ret;
     }
 

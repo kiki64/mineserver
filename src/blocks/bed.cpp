@@ -48,6 +48,44 @@ void BlockBed::onStoppedDigging(User* user, int8_t status, int32_t x, int8_t y, 
 
 bool BlockBed::onBroken(User* user, int8_t status, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
 {
+  uint8_t block;
+  uint8_t meta;
+  int zMod = 0, xMod = 0;
+
+  if (!Mineserver::get()->map(map)->getBlock(x, y, z, &block, &meta))
+  {
+    return true;
+  }
+
+  // Find the other part of the bed to remove
+  switch (meta)
+  {
+  // Foot of bed
+  case BLOCK_TOP:
+  case HEAD_OF_BED_EAST:
+	  xMod = -1;
+    break;
+  case BLOCK_SOUTH:
+  case HEAD_OF_BED_WEST:
+	  xMod = +1;
+    break;
+  case BLOCK_NORTH:
+  case HEAD_OF_BED_NORTH:
+	  zMod = -1;
+    break;
+  case BLOCK_BOTTOM:
+  case HEAD_OF_BED_SOUTH:
+	  zMod = +1;
+    break;
+  }
+
+  Mineserver::get()->map(map)->sendBlockChange(x, y, z, BLOCK_AIR, 0);
+  Mineserver::get()->map(map)->setBlock(x, y, z, BLOCK_AIR, 0);
+
+  Mineserver::get()->map(map)->setBlock(x + xMod, y, z + zMod, BLOCK_AIR, 0);
+  Mineserver::get()->map(map)->sendBlockChange(x + xMod, y, z + zMod, BLOCK_AIR, 0);
+
+  this->spawnBlockItem(x, y, z, map,  block);
   return false;
 }
 
@@ -105,21 +143,28 @@ bool BlockBed::onPlace(User* user, int16_t newblock, int32_t x, int8_t y, int32_
   switch (direction)
   {
   case BLOCK_EAST:
-    direction = SEND_BLOCK_SOUTH;
 	  xMod = -1;
+    direction = BLOCK_TOP;
     break;
   case BLOCK_WEST:
-    direction = SEND_BLOCK_WEST;
 	  xMod = +1;
+    direction = BLOCK_SOUTH;
     break;
   case BLOCK_NORTH:
-    direction = SEND_BLOCK_EAST;
 	  zMod = +1;
+    direction = BLOCK_BOTTOM;
     break;
   case BLOCK_SOUTH:
-    direction = SEND_BLOCK_NORTH;
 	  zMod = -1;
+    direction = BLOCK_NORTH;
     break;
+  }
+
+  // Check where head of the bed will be
+  if (!this->isBlockEmpty(x + xMod, y, z + zMod, map))
+  {
+    revertBlock(user, x + xMod, y, z + zMod, map);
+    return true;
   }
 
   Mineserver::get()->map(map)->setBlock(x, y, z, (char)newblock, direction);

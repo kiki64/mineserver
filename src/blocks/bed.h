@@ -34,6 +34,9 @@ class User;
 
 class BlockBed : public BlockBasic
 {
+  //Direction from placed block
+  enum headOfBed{ HEAD_OF_BED_NORTH = 8, HEAD_OF_BED_WEST, HEAD_OF_BED_SOUTH, HEAD_OF_BED_EAST };
+
 public:
   inline bool affectedBlock(int block) const { return block == BLOCK_BED || block == ITEM_BED; }
 
