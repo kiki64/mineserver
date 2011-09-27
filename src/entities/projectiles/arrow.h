@@ -29,19 +29,59 @@
 #define _ENTITIES_ARROW_H
 
 #include "../../constants.h"
+#include "../../user.h"
 #include "../entity.h"
 
 
 class EntityArrow: public Entity
 {
 public:
+  EntityArrow();
+  EntityArrow(User* user, int8_t ID);
 
+  void update();
+  //bool hasTimedout() { return timeStationary >= projectileTimeout;}
+  bool isInFlight() { return inFlight; }
+  bool canBeRetrieved() {} //pickedup
 
-  
+  //Setters
+  void setProjectileID( int8_t temp ){ projID = temp; }
+  void setUser(int32_t whoShotArrow){owner = whoShotArrow;}
+  void setInFlight( bool temp ){inFlight = temp;}
+
+  //Getters
+  int8_t getProjectileID(){return projID;}
+  int32_t getUser(){return owner;}
+  int getTicksInFlight(){return ticksInFlight;}
+  int getTicksStationary(){return ticksStationary;}
+
+  //Increment ticks
+  void incrementTicksInFlight(){ ++ticksInFlight;}
+  void incrementTicksStationary(){ ++ticksStationary;}
+
 
 private:
+  int8_t projID;
+
+  float intialHeight;
+  int16_t intialVelocity;
+  float intialPitch;
+  float intialYaw;
+  float totalHorizontalDistance;
+  
+  int displacementX;
+  int displacementY;
+  int ticksInFlight; //Ticks projectile was in flight - Needed?
+  int ticksStationary; // Ticks projectile wasn't moving
+  bool inFlight;
+
+  static const int projectileTimeout = 60000; // one minute, milliseconds
+  int32_t owner; // EID / UID of thing that shot this arrow.
 
 
+  //On collision with a mob or another player deals damage, stays stuck in person.
+  //inFlight() to see if it is moving, check for colisions.
+  //If arrow is shot by player they can retrieve their arrows under certian conditions.
 };
 
 #endif

@@ -33,7 +33,24 @@ Source: (http://www.minecraftwiki.net/wiki/Entity)
 #ifndef _ENTITY_H
 #define _ENTITY_H
 
-#include "constants.h"
+#include "../constants.h"
+
+struct entityPosition
+{
+  int32_t x;
+  int32_t y;
+  int32_t z;
+  size_t map;
+  int8_t yaw;
+  int8_t pitch;
+  int8_t roll;
+};
+struct velocity
+{
+  int16_t x;
+  int16_t y;
+  int16_t z;
+};
 
 class Entity 
 {
@@ -46,26 +63,10 @@ public:
   void setVelocity( int16_t x, int16_t y, int16_t z );
   void getVelocity( int16_t &x, int16_t &y, int16_t &z );
 
-private:
+protected:
   int32_t EID;
   int8_t type;
-  struct position
-  {
-    int32_t x;
-    int32_t y;
-    int32_t z;
-    size_t map;
-    int8_t yaw;
-    int8_t pitch;
-    int8_t roll;
-  };
-  struct velocity
-  {
-    int16_t x;
-    int16_t y;
-    int16_t z;
-  };
-  position pos;
+  entityPosition pos;
   velocity vel;
   int8_t health;
   bool onFire;

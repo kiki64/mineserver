@@ -992,7 +992,7 @@ void Map::createPickupSpawn(int x, int y, int z, int type, int count, int health
   }
 
   //TODO: make a function that in user.cpp
-  //      struct pos positionInFrontOfUsersView( int distanceFromUser )
+  //      void positionInFrontOfUsersView( int distanceFromUser, otherdata )
   if( thrown )
   {
     // Below is for position
@@ -1065,18 +1065,18 @@ bool Map::sendProjectileSpawn(User* user, int8_t projID)
     return false;
   }
 
-  ItemProjectile* projectile = new ItemProjectile(user, projID);
+  //ItemProjectile* projectile = new ItemProjectile(user, projID);
 
-  //TODO: enable once moved.
+  ////TODO: enable once moved.
   //Mineserver::get()->entityManager()->add((entityPtr)projectile);
 
-  Packet  pkt;
+  //Packet  pkt;
 
-  pkt << Protocol::entity( (int32_t)projectile->getEID() )
-      << Protocol::addObject( (int32_t)projectile->getEID(), (int8_t)projID, (int32_t)projectile->getPosition().x, (int32_t)projectile->getPosition().y, (int32_t)projectile->getPosition().z, (int32_t)0 )
-      << Protocol::entityVelocity( (int32_t)projectile->getEID(), (int16_t)projectile->getVelocity().x, (int16_t)projectile->getVelocity().y, (int16_t)projectile->getVelocity().z );
+  //pkt << Protocol::entity( (int32_t)projectile->getEID() )
+  //    << Protocol::addObject( (int32_t)projectile->getEID(), (int8_t)projID, (int32_t)projectile->getPosition().x, (int32_t)projectile->getPosition().y, (int32_t)projectile->getPosition().z, (int32_t)0 )
+  //    << Protocol::entityVelocity( (int32_t)projectile->getEID(), (int16_t)projectile->getVelocity().x, (int16_t)projectile->getVelocity().y, (int16_t)projectile->getVelocity().z );
 
-  user->sendAll(pkt);
+  //user->sendAll(pkt);
 
   return true;
 }

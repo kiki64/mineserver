@@ -27,6 +27,7 @@
 
 #include "../mineserver.h"
 #include "../map.h"
+#include "../protocol.h"
 
 #include "bed.h"
 
@@ -188,5 +189,10 @@ void BlockBed::onReplace(User* user, int16_t newblock, int32_t x, int8_t y, int3
 
 bool BlockBed::onInteract(User* user, int32_t x, int8_t y, int32_t z, int map)
 {
+  //TODO: Check if is already occupied.
+  //Set users new spawn position.
+  // You can only sleep after or before a certian time of that day.
+  // The coordinates have to be the head of the bed only.
+  user->sendAll(Protocol::useBed( user->UID, 0, x, y, z ));
   return false;
 }

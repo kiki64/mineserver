@@ -360,5 +360,13 @@ class Protocol
       ret << (int8_t)PACKET_SOUND_EFFECT << (int32_t)effectID << (int32_t)x << (int8_t)y << (int32_t)z << (int32_t)soundData;
       return ret;
     }
+
+    // Use Bed (http://mc.kev009.com/Protocol#Use_Bed_.280x11.29)
+    static Packet useBed( int32_t id, int8_t inBed, int32_t x, int8_t y, int32_t z )
+    {
+      Packet ret;
+      ret << (int8_t)PACKET_USE_BED << (int32_t)id << (int8_t)inBed << (int32_t)x << (int8_t)y << (int32_t)z;
+      return ret;
+    }
 };
 #endif

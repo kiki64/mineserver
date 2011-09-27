@@ -107,6 +107,13 @@ int PacketHandler::entity_crouch(User* user)
 
   user->buffer >> EID >> action;
 
+  switch (action)
+  {
+  case ENTITY_ACTION_LEAVE_BED:
+    user->sendAll( Protocol::animation( user->UID, ANIMATE_LEAVE_BED ) );
+    break;
+  }
+
   //ToDo: inform other players
   //LOG2(INFO, "Entity action: EID: " + dtos(EID) +" Action: " +dtos(action));
 
