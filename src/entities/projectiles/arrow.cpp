@@ -1,6 +1,6 @@
 /*
-  Copyright (c) 2011, The Mineserver Project
-  All rights reserved.
+   Copyright (c) 2011, The Mineserver Project
+   All rights reserved.
 
   Redistribution and use in source and binary forms, with or without
   modification, are permitted provided that the following conditions are met:
@@ -23,24 +23,7 @@
   ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
   SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*/
+ */
 
-#ifndef PROJECTILE_MANAGER_H
-#define PROJECTILE_MANAGER_H
+#include "arrow.h"
 
-class ItemProjectile;
-
-typedef std::tr1::shared_ptr<ItemProjectile> ItemProjectilePtr;
-
-class ProjectileManager
-{
-public:
-  void update();
-  void addProjectile(ItemProjectilePtr temp);
-  void addProjectile(User* user, int8_t projID);
-
-private:
-  typedef std::list<ItemProjectilePtr> ProjectileContainer;
-  ProjectileContainer m_aliveProjectiles;
-};
-#endif

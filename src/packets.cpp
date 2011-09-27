@@ -918,7 +918,7 @@ int PacketHandler::player_block_placement(User* user)
     LOG(INFO, "Packets", "Spawn minecart");
     int32_t EID = Mineserver::generateEID();
     Packet pkt;
-    // MINECART, Not sure of what 0 on end represents 9/18/2011
+    // MINECART
     pkt << Protocol::addObject( (int32_t)EID, (int8_t)10, (int32_t)(x * 32 + 16), (int32_t)(y * 32), (int32_t)(z * 32 + 16), 0 );
     user->sendAll(pkt);
   }

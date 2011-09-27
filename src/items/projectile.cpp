@@ -4,7 +4,7 @@
 #include "../packets.h"
 #include "../mineserver.h"
 #include "../map.h"
-#include "../projectileManager.h"
+#include "../entityManager.h"
 
 uint32_t generateEID();
 

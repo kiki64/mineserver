@@ -39,7 +39,7 @@
 #include "furnaceManager.h"
 #include "mcregion.h"
 #include "protocol.h"
-#include "projectileManager.h"
+#include "entityManager.h"
 #include "items/projectile.h"
 
 // Copy Construtor
@@ -1067,7 +1067,8 @@ bool Map::sendProjectileSpawn(User* user, int8_t projID)
 
   ItemProjectile* projectile = new ItemProjectile(user, projID);
 
-  Mineserver::get()->projectileManager()->addProjectile((ItemProjectilePtr)projectile);
+  //TODO: enable once moved.
+  //Mineserver::get()->entityManager()->add((entityPtr)projectile);
 
   Packet  pkt;
 

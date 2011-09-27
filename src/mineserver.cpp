@@ -66,6 +66,7 @@
 #include "cliScreen.h"
 #include "hook.h"
 #include "mob.h"
+#include "entityManager.h"
 //#include "minecart.h"
 #ifdef WIN32
 static bool quit = false;
@@ -430,6 +431,7 @@ bool Mineserver::init()
   m_packetHandler  = new PacketHandler;
   m_inventory      = new Inventory(m_config->sData("system.path.data") + '/' + "recipes", ".recipe", "ENABLED_RECIPES.cfg");
   m_mobs           = new Mobs;
+  m_entity_list    = new EntityManager;
 
   return true;
 }
@@ -458,6 +460,7 @@ bool Mineserver::free()
   delete m_packetHandler;
   delete m_inventory;
   delete m_mobs;
+  delete m_entity_list;
 
   if (m_plugin)
   {

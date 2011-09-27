@@ -59,7 +59,7 @@ class Logger;
 class Inventory;
 class Mobs;
 class Mob;
-class ProjectileManager;
+class EntityManager;
 
 #define MINESERVER
 #include "plugin_api.h"
@@ -177,9 +177,9 @@ public:
   }
 
 
-  inline ProjectileManager* projectileManager() const
+  inline EntityManager* entityManager() const
   {
-    return m_projectileManager;
+    return m_entity_list;
   }
 
 
@@ -243,7 +243,7 @@ private:
   PacketHandler*  m_packetHandler;
   Inventory*      m_inventory;
   Mobs*           m_mobs;
-  ProjectileManager*  m_projectileManager;
+  EntityManager*  m_entity_list;
 };
 
 #endif
