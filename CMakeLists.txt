@@ -141,6 +141,7 @@ SET(mineserver_source
   src/entityManager.cpp
   src/entities/entity.cpp
   src/entities/projectiles/arrow.cpp
+  src/entities/vehicles/minecart.cpp
 )
 SOURCE_GROUP(${PROJECT_NAME} FILES ${mineserver_source})
 

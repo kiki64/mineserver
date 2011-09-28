@@ -221,10 +221,10 @@ class Protocol
     }
 
     // Update Health (http://mc.kev009.com/Protocol#Update_Health_.280x08.29)
-    static Packet updateHealth(int health)
+    static Packet updateHealth(int16_t health, int16_t food, float foodSaturation)
     {
       Packet ret;
-      ret << (int8_t)PACKET_UPDATE_HEALTH << (int16_t)health << (int16_t)20 << (float)5.0;
+      ret << (int8_t)PACKET_UPDATE_HEALTH << (int16_t)health << (int16_t)food << (float)foodSaturation;
       return ret;
     }
 

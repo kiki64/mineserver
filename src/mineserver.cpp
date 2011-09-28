@@ -67,6 +67,7 @@
 #include "hook.h"
 #include "mob.h"
 #include "entityManager.h"
+#include "protocol.h"
 //#include "minecart.h"
 #ifdef WIN32
 static bool quit = false;
@@ -717,7 +718,7 @@ bool Mineserver::run()
       {
         // Send server time
         Packet pkt;
-        pkt << (int8_t)PACKET_TIME_UPDATE << (int64_t)m_map[0]->mapTime;
+        pkt << Protocol::timeUpdate( (int64_t)m_map[0]->mapTime );
         (*User::all().begin())->sendAll(pkt);
       }
 
@@ -760,6 +761,12 @@ bool Mineserver::run()
           (*it)->pushMap();
           (*it)->popMap();
         }
+
+        // Update Player List (in-game tab menu)
+        // TODO: Also calculate latency between server and client.  Replace static ping with that.
+        Packet pkt;
+        pkt << Protocol::playerListItem( (*it)->nick, true, 100);
+        (*User::all().begin())->sendAll(pkt);
 
       }
 

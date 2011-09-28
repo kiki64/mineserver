@@ -47,32 +47,32 @@
 
 User::User(int sock, uint32_t EID)
 {
-  this->action          = 0;
-  this->muted           = false;
-  this->dnd             = false;
-  this->waitForData     = false;
-  this->fd              = sock;
-  this->UID             = EID;
-  this->logged          = false;
-  this->serverAdmin     = false;
-  this->pos.map         = 0;
-  this->pos.x           = Mineserver::get()->map(pos.map)->spawnPos.x();
-  this->pos.y           = Mineserver::get()->map(pos.map)->spawnPos.y();
-  this->pos.z           = Mineserver::get()->map(pos.map)->spawnPos.z();
-  this->write_err_count = 0;
-  this->health          = 20;
-  this->attachedTo      = 0;
-  this->timeUnderwater  = 0;
-  this->isOpenInv       = false;
-  this->lastData        = time(NULL);
-  this->permissions     = 0;
-  this->fallDistance    = -10;
-  this->healthtimeout   = time(NULL) - 1;
-
-
+  this->action            = 0;
+  this->muted             = false;
+  this->dnd               = false;
+  this->waitForData       = false;
+  this->fd                = sock;
+  this->UID               = EID;
+  this->logged            = false;
+  this->serverAdmin       = false;
+  this->pos.map           = 0;
+  this->pos.x             = Mineserver::get()->map(pos.map)->spawnPos.x();
+  this->pos.y             = Mineserver::get()->map(pos.map)->spawnPos.y();
+  this->pos.z             = Mineserver::get()->map(pos.map)->spawnPos.z();
+  this->write_err_count   = 0;
+  this->health            = 20;
+  this->foodPoints        = 20;
+  this->foodSaturation    = 5.0F;
+  this->attachedTo        = 0;
+  this->timeUnderwater    = 0;
+  this->isOpenInv         = false;
+  this->lastData          = time(NULL);
+  this->permissions       = 0;
+  this->fallDistance      = -10;
+  this->healthtimeout     = time(NULL) - 1;
   this->m_currentItemSlot = 0;
   this->inventoryHolding  = Item(this, -1);
-  this->curItem          = 0;
+  this->curItem           = 0;
 
   // Ignore this user if it's the server console
   if (this->UID != SERVER_CONSOLE_UID)
@@ -242,8 +242,8 @@ bool User::sendLoginInfo()
     inv[i].sendUpdate();
   }
 
-  // Teleport player (again)
-  teleport(pos.x, pos.y + 2, pos.z);
+  // Send player their position
+  buffer << Protocol::playerPositionAndLook( pos.x, pos.y + 2, pos.stance, pos.z, pos.yaw, pos.pitch, true );
 
   Mineserver::get()->chat()->sendMsg(this, nick + " connected!", Chat::ALL);
 
@@ -359,7 +359,7 @@ bool User::loadData()
 
   std::vector<NBT_Value*>* rot = nbtPlayer["Rotation"]->GetList();
   pos.yaw = (float)(*(*rot)[0]);
-  pos.yaw = (float)(*(*rot)[1]);
+  pos.pitch = (float)(*(*rot)[1]);
 
   std::vector<NBT_Value*>* _inv = nbtPlayer["Inventory"]->GetList();
   std::vector<NBT_Value*>::iterator iter = _inv->begin(), end = _inv->end();
@@ -1192,6 +1192,7 @@ bool User::teleport(double x, double y, double z, size_t map)
   }
 
   //Also update pos for other players
+  // *below,  why is this here
   updatePosM(x, y, z, map, pos.stance);
   pushMap();
   pushMap();
@@ -1218,13 +1219,21 @@ bool User::spawnOthers()
     //    if ((*it)->logged && (*it)->UID != this->UID && (*it)->nick != this->nick)
     if ((*it)->logged)
     {
-      loginBuffer << Protocol::namedEntitySpawn((*it)->UID, (*it)->nick, (*it)->pos.x, (*it)->pos.y, (*it)->pos.z, 0, 0, 0);
-      for (int b = 0; b < 5; b++)
+      //BUG:  Minecraft Client 1.8.1 found September 28 2011 (I did not report the bug)
+      // The yaw in the line below seems strange.  If you make two players look directly at each other. Disconnect both.
+      //   Then reconnect both of them the one that connects later will observe the first player not looking directly at them.
+      //   This is easily resolved by having the first connected player move their mouse so a playerlook packet is sent.
+      //   Looks to be a flawed client bug?
+      loginBuffer << Protocol::namedEntitySpawn((*it)->UID, (*it)->nick, (*it)->pos.x, (*it)->pos.y, (*it)->pos.z, (*it)->pos.yaw, (*it)->pos.pitch, (*it)->curItem);
+      for (uint8_t b = 0; b < 5; b++)
       {
         const int n = b == 0 ? (*it)->curItem + 36 : 9 - b;
         const int type = (*it)->inv[n].getType();
         loginBuffer << Protocol::entityEquipment((*it)->UID, b, type, 0);
       }
+      // This line below should not be needed.
+      // As of 1.8.1 this is needed to fix the very small edge case described above.
+      loginBuffer << Protocol::entityLook((*it)->UID, (*it)->pos.yaw, (*it)->pos.pitch);
     }
   }
   return true;
@@ -1344,17 +1353,17 @@ void User::checkEnvironmentDamage()
   sethealth(std::max(0, health - d));
 }
 
-bool User::sethealth(int userHealth)
+bool User::sethealth(int16_t userHealth)
 {
   if (!logged)
   {
     return false;
   }
-  if (health > 20)
+  if (userHealth > 20)
   {
     health = 20;
   }
-  if (health < 0)
+  else if (userHealth < 0)
   {
     health = 0;
   }
@@ -1376,13 +1385,44 @@ bool User::sethealth(int userHealth)
   healthtimeout = time(NULL);
 
   health = userHealth;
-  buffer << Protocol::updateHealth(userHealth);
+  // Just for changing player health, doesn't effect food
+  buffer << Protocol::updateHealth(userHealth, foodPoints, foodSaturation);
+  return true;
+}
+
+bool User::setFood( int16_t food, float saturation )
+{
+  if( food > 20 )
+  {
+    food = 20;
+  }
+  else if( food < 0 )
+  {
+    food = 0;
+  }
+
+  if( saturation > 5.0F )
+  {
+    saturation = 5.0F;
+  }
+  else if( saturation < 0.0F )
+  {
+    saturation = 0.0F;
+  }
+
+  foodPoints = food;
+  foodSaturation = saturation;
+
+  // Update foodpoints and saturation only, don't change health.
+  buffer << Protocol::updateHealth(health, food, saturation);
   return true;
 }
 
 bool User::respawn()
 {
   this->health = 20;
+  this->foodPoints = 20;
+  this->foodSaturation = 5.0F;
   this->timeUnderwater = 0;
   buffer << Protocol::respawn(); //FIXME: send the correct world id
   Packet destroyPkt;
@@ -1429,7 +1469,7 @@ bool User::dropInventory()
 bool User::isUnderwater()
 {
   uint8_t topblock, topmeta;
-  const int y = (pos.y - int(pos.y) <= 0.25) ? pos.y + 1 : pos.y + 2;
+  const int y = (pos.y - (int)pos.y <= 0.25) ? pos.y + 1 : pos.y + 2;
 
   if (y > 127)
   {
@@ -1440,7 +1480,7 @@ bool User::isUnderwater()
 
   if (topblock == BLOCK_WATER || topblock == BLOCK_STATIONARY_WATER)
   {
-    if ((timeUnderwater / 5) > 15 && timeUnderwater % 5 == 0)  // 13 is Trial and Erorr
+    if ((timeUnderwater / 5) > 15 && timeUnderwater % 5 == 0)
     {
       sethealth(health - 2);
     }

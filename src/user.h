@@ -76,6 +76,9 @@ public:
   bool muted;
   bool dnd;
   int16_t health;
+  int16_t foodPoints;
+  float foodSaturation;
+
   uint16_t timeUnderwater;
   double fallDistance;
   unsigned int UID;
@@ -100,6 +103,13 @@ public:
   //Input buffer
   Packet buffer;
   Packet loginBuffer; // Used to send all login info at once
+
+  //Respawn at Bed
+  bool respawnAtBed;
+  int32_t respawnLocationX;
+  int8_t respawnLocationY;
+  int32_t respawnLocationZ;
+
 
   static std::set<User*>& all();
   static bool isUser(int sock);
@@ -173,7 +183,8 @@ public:
   bool teleport(double x, double y, double z, size_t map = -1);
   bool spawnUser(int x, int y, int z);
   bool spawnOthers();
-  bool sethealth(int userHealth);
+  bool sethealth(int16_t userHealth);
+  bool setFood( int16_t food, float saturation );
   bool respawn();
   bool dropInventory();
   bool isUnderwater();
