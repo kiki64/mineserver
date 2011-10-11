@@ -1348,20 +1348,8 @@ int PacketHandler::respawn(User* user)
 int PacketHandler::server_list_ping(User* user)
 {
   user->buffer.removePacket();
-
   std::string delimeter = "§";
-
-  // Count players currently on server, do this when added and removed.  This function is spammable via refresh button.
-  // with large number of users would be bad.  Is there a way to limit the amount of times this packet is sent. Delay?
-  int16_t numPlayers = -1; // -1 for console user
-  for (std::set<User*>::const_iterator it = user->all().begin(); it != user->all().end(); ++it)
-  {
-    numPlayers += 1;
-  }
-
-  //TODO: Send correct MOTD
-  user->buffer << Protocol::kick("Mineserver MOTD" + delimeter + itoa(numPlayers, 10) + delimeter + my_itoa(Mineserver::get()->config()->iData("system.user_limit")));
-
+  user->buffer << Protocol::kick(Mineserver::get()->config()->sData("system.server_name") + delimeter + itoa(user->all().size() - 1, 10) + delimeter + my_itoa(Mineserver::get()->config()->iData("system.user_limit")));
   return PACKET_OK;
 }
 

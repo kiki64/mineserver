@@ -73,6 +73,7 @@ User::User(int sock, uint32_t EID)
   this->m_currentItemSlot = 0;
   this->inventoryHolding  = Item(this, -1);
   this->curItem           = 0;
+  this->respawnAtBed      = false;
 
   // Ignore this user if it's the server console
   if (this->UID != SERVER_CONSOLE_UID)
@@ -244,7 +245,6 @@ bool User::sendLoginInfo()
 
   // Send player their position
   buffer << Protocol::playerPositionAndLook( pos.x, pos.y + 2, pos.stance, pos.z, pos.yaw, pos.pitch, true );
-
   Mineserver::get()->chat()->sendMsg(this, nick + " connected!", Chat::ALL);
 
   sethealth(health);
@@ -350,6 +350,15 @@ bool User::loadData()
     return false;
   }
 
+  //Respawn at bed
+  if( nbtPlayer["SpawnY"] != 0 )
+  {
+    respawnAtBed = true;
+    respawnLocationX = (int32_t)*nbtPlayer["SpawnX"];
+    respawnLocationY = (int32_t)*nbtPlayer["SpawnY"];
+    respawnLocationZ = (int32_t)*nbtPlayer["SpawnZ"];
+  }
+
   std::vector<NBT_Value*>* _pos = nbtPlayer["Pos"]->GetList();
   pos.x = (double)(*(*_pos)[0]);
   pos.y = (double)(*(*_pos)[1]);
@@ -434,6 +443,14 @@ bool User::saveData()
   val.Insert("HurtTime", new NBT_Value((int16_t)0));
   val.Insert("FallDistance", new NBT_Value(54.f));
 
+  //Respawn at bed
+  if( respawnAtBed )
+  {
+    val.Insert("SpawnX", new NBT_Value((int32_t)respawnLocationX));
+    val.Insert("SpawnY", new NBT_Value((int32_t)respawnLocationY));
+    val.Insert("SpawnZ", new NBT_Value((int32_t)respawnLocationZ));
+  }
+
   NBT_Value* nbtInv = new NBT_Value(NBT_Value::TAG_LIST, NBT_Value::TAG_COMPOUND);
 
   char itemslot = 0;
@@ -513,32 +530,50 @@ bool User::updatePosM(double x, double y, double z, size_t map, double stance)
 {
   if (map != pos.map && logged)
   {
-
-    // Loop every loaded chunk to make sure no user pointers are left!
-
-    for (ChunkMap::const_iterator it = Mineserver::get()->map(pos.map)->chunks.begin(); it != Mineserver::get()->map(pos.map)->chunks.end(); ++it)
+    Packet destroyPkt;
+    destroyPkt << Protocol::destroyEntity(UID);
+    sChunk* chunk = Mineserver::get()->map(pos.map)->getMapData(blockToChunk((int32_t)pos.x), blockToChunk((int32_t)pos.z));
+    if (chunk != NULL)
     {
-      it->second->users.erase(this);
-
-      if (it->second->users.empty())
-      {
-        Mineserver::get()->map(pos.map)->releaseMap(it->first.first, it->first.second);
-      }
+      chunk->sendPacket(destroyPkt, this);
     }
 
-    // TODO despawn players who are no longer in view
-    // TODO despawn self to players on last world
     pos.map = map;
     pos.x = x;
     pos.y = y;
     pos.z = z;
-    LOG2(INFO, "World changing");
-    // TODO spawn self to nearby players
-    // TODO spawn players who are NOW in view
-    return false;
+    std::string temp = nick + " is changing worlds.";
+    LOG2(INFO, temp.c_str());
+
+    //Loop through chunks in users known and add them to be removed.
+    while (this->mapKnown.size())
+    {
+      //Add to remove list
+      addRemoveQueue(mapKnown.begin()->x(), mapKnown.begin()->z());
+
+      // Delete from known list
+      delKnown(mapKnown.begin()->x(), mapKnown.begin()->x());
+
+      // Remove from queue
+      mapKnown.erase(mapKnown.begin());
+    }
+    popMap();
+
+    // Put nearby chunks to queue
+    for (int x = -viewDistance; x <= viewDistance; x++)
+    {
+      for (int z = -viewDistance; z <= viewDistance; z++)
+      {
+        addQueue((int32_t)pos.x / 16 + x, (int32_t)pos.z / 16 + z);
+      }
+    }
+    // Push chunks to user
+    pushMap();
+
+    buffer << Protocol::respawn() << Protocol::playerPositionAndLook( x, y, stance, z, pos.yaw, pos.pitch, true) << Protocol::timeUpdate(Mineserver::get()->map(map)->mapTime);
+
   }
-  updatePos(x, y, z, stance);
-  return true;
+  return false;
 }
 
 bool User::updatePos(double x, double y, double z, double stance)
@@ -1188,17 +1223,27 @@ bool User::teleport(double x, double y, double z, size_t map)
   }
   if (map == pos.map)
   {
+    //TODO No need to send packet, instead send a message about how you are already in that world.
     buffer << Protocol::playerPositionAndLook(x, y, 0, z, 0, 0, true);
+    return false; // No need to keep going we are on the same map
   }
 
   //Also update pos for other players
-  // *below,  why is this here
   updatePosM(x, y, z, map, pos.stance);
-  pushMap();
-  pushMap();
-  pushMap();
-  updatePosM(x, y, z, map, pos.stance);
+  //pushMap();
+  //pushMap();
+  //pushMap();
+  //updatePosM(x, y, z, map, pos.stance);
   return true;
+}
+
+bool User::teleport(size_t map)
+{
+  if( teleport( Mineserver::get()->map(map)->spawnPos.x(), Mineserver::get()->map(map)->spawnPos.y() + 2, Mineserver::get()->map(map)->spawnPos.z(), map ) )
+  {
+    return true;
+  }
+  return false;
 }
 
 bool User::spawnUser(int x, int y, int z)
@@ -1424,7 +1469,7 @@ bool User::respawn()
   this->foodPoints = 20;
   this->foodSaturation = 5.0F;
   this->timeUnderwater = 0;
-  buffer << Protocol::respawn(); //FIXME: send the correct world id
+  buffer << Protocol::respawn(); //FIXME: send the correct world type (ender, normal, nether)
   Packet destroyPkt;
   destroyPkt << Protocol::destroyEntity(UID);
   sChunk* chunk = Mineserver::get()->map(pos.map)->getMapData(blockToChunk((int32_t)pos.x), blockToChunk((int32_t)pos.z));
@@ -1439,7 +1484,16 @@ bool User::respawn()
   }
   else
   {
-    teleport(Mineserver::get()->map(pos.map)->spawnPos.x(), Mineserver::get()->map(pos.map)->spawnPos.y() + 2, Mineserver::get()->map(pos.map)->spawnPos.z(), 0);
+    if( respawnAtBed )
+    {
+      // make this world dependent
+      //teleport( respawnLocationX, respawnLocationY + 2, respawnLocationZ, pos.map );
+      teleport(Mineserver::get()->map(pos.map)->spawnPos.x(), Mineserver::get()->map(pos.map)->spawnPos.y() + 2, Mineserver::get()->map(pos.map)->spawnPos.z(), pos.map);
+    }
+    else
+    {
+      teleport(Mineserver::get()->map(pos.map)->spawnPos.x(), Mineserver::get()->map(pos.map)->spawnPos.y() + 2, Mineserver::get()->map(pos.map)->spawnPos.z(), pos.map);
+    }
   }
 
   Packet spawnPkt = Protocol::namedEntitySpawn(UID, nick, pos.x, pos.y, pos.z, angleToByte(pos.yaw), angleToByte(pos.pitch), curItem);
@@ -1537,3 +1591,16 @@ void User::setCurrentItemSlot(int16_t item_slot)
   m_currentItemSlot = item_slot;
 }
 
+bool User::setRespawn(int32_t x, int8_t y, int32_t z)
+{
+  respawnAtBed = true;
+  if( respawnLocationX == x && respawnLocationY == y && respawnLocationZ == z )
+  {
+    // Respawn location did not change
+    return false;
+  }
+  respawnLocationX = x;
+  respawnLocationY = y;
+  respawnLocationZ = z;
+  return true;
+}

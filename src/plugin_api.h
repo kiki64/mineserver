@@ -94,7 +94,7 @@ struct user_pointer_struct
   bool (*toggleDND)(const char* user);
   bool (*getPosition)(const char* user, double* x, double* y, double* z, float* yaw, float* pitch, double* stance);
   bool (*sethealth)(const char* user, int userHealth);
-  bool (*teleportMap)(const char* user, double x, double y, double z, size_t map);
+  bool (*teleportMap)(const char* user, size_t map);
   int (*getCount)();
   const char* (*getUserNumbered)(int c);
   bool (*getPositionW)(const char* user, double* x, double* y, double* z, int* w, float* yaw, float* pitch, double* stance);

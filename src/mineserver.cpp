@@ -529,7 +529,7 @@ bool Mineserver::run()
   }
 
   // Initialize map
-  for (int i = 0; i < (int)m_map.size(); i++)
+  for (int8_t i = 0; i < (int8_t)m_map.size(); i++)
   {
     physics(i)->enabled = (config()->bData("system.physics.enabled"));
 
@@ -713,12 +713,12 @@ bool Mineserver::run()
         m_lastSave = timeNow;
       }
 
-      // If users, ping them
-      if (!User::all().empty())
+      // Loop users
+      for (std::set<User*>::const_iterator it = users().begin(); it != users().end(); ++it)
       {
-        // Send server time
+        // Send the time of the map/world the user is on.
         Packet pkt;
-        pkt << Protocol::timeUpdate( (int64_t)m_map[0]->mapTime );
+        pkt << Protocol::timeUpdate( (int64_t)m_map[(*it)->pos.map]->mapTime );
         (*User::all().begin())->sendAll(pkt);
       }
 
@@ -763,13 +763,26 @@ bool Mineserver::run()
         }
 
         // Update Player List (in-game tab menu)
-        // TODO: Also calculate latency between server and client.  Replace static ping with that.
+        // TODO: Calculate latency between server and client.
         Packet pkt;
         pkt << Protocol::playerListItem( (*it)->nick, true, 100);
         (*User::all().begin())->sendAll(pkt);
 
+        //Update the map for each player
+        (*it)->pushMap();
+        (*it)->popMap();
+
+        //Drowning
+        (*it)->isUnderwater();
+
+        // User is under the map
+        if ((*it)->pos.y < 0)
+        {
+          (*it)->sethealth((*it)->health - 5);
+        }
       }
 
+      //Increment time on each map
       for (std::vector<Map*>::size_type i = 0 ; i < m_map.size(); i++)
       {
         m_map[i]->mapTime += 20;
@@ -779,12 +792,6 @@ bool Mineserver::run()
         }
       }
 
-      for (std::set<User*>::const_iterator it = users().begin(); it != users().end(); ++it)
-      {
-        (*it)->pushMap();
-        (*it)->popMap();
-      }
-
       // Check for Furnace activity
       furnaceManager()->update();
 
@@ -792,18 +799,6 @@ bool Mineserver::run()
       static_cast<Hook0<bool>*>(plugin()->getHook("Timer1000"))->doAll();
     }
 
-    // Underwater check / drowning
-    // ToDo: this could be done a bit differently? - Fador
-    // -- User::all() == users() - louisdx
-
-    for (std::set<User*>::const_iterator it = users().begin(); it != users().end(); ++it)
-    {
-      (*it)->isUnderwater();
-      if ((*it)->pos.y < 0)
-      {
-        (*it)->sethealth((*it)->health - 5);
-      }
-    }
   }
 
 #ifdef WIN32

@@ -25,6 +25,7 @@
   SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#include "../chat.h"
 #include "../mineserver.h"
 #include "../map.h"
 #include "../protocol.h"
@@ -189,10 +190,53 @@ void BlockBed::onReplace(User* user, int16_t newblock, int32_t x, int8_t y, int3
 
 bool BlockBed::onInteract(User* user, int32_t x, int8_t y, int32_t z, int map)
 {
-  //TODO: Check if is already occupied.
-  //Set users new spawn position.
-  // You can only sleep after or before a certian time of that day.
-  // The coordinates have to be the head of the bed only.
+  //TODO: Check if this bed is already occupied.
+
+  // To early to sleep
+  if( Mineserver::get()->map(user->pos.map)->mapTime < 12000 )
+  {
+    Mineserver::get()->chat()->sendMsg( user, "You can only sleep at night.", Chat::USER );
+    return false;
+  }
+
+  getHeadofBed( user, x, y, z );
   user->sendAll(Protocol::useBed( user->UID, 0, x, y, z ));
-  return false;
+  
+  //Set user's new spawn position
+  if( user->setRespawn( x, y, z ) )
+  {
+    Mineserver::get()->chat()->sendMsg( user, "Respawn location set.", Chat::USER );
+  }
+
+  // TODO:
+  // Checking if all players on the server should be on the main loop.  If one user is not sleeping move on.
+  // If all are sleeping change time and remove all users from their beds.
+
+  return true;
+}
+
+bool BlockBed::getHeadofBed( User* user, int32_t& x, int8_t y, int32_t& z )
+{
+  uint8_t block, meta;
+
+  Mineserver::get()->map(user->pos.map)->getBlock(x, y, z, &block, &meta);
+
+  switch( meta )
+  {
+  case BLOCK_BOTTOM:
+    z += 1;
+    break;
+  case BLOCK_TOP:
+    x -= 1;
+    break;
+  case BLOCK_NORTH:
+    z -= 1;
+    break;
+  case BLOCK_SOUTH:
+    x += 1;
+    break;
+  default:
+    return false; // Already is head of the bed
+  }
+  return true; // Not head of the bed
 }

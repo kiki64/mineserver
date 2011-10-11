@@ -368,5 +368,13 @@ class Protocol
       ret << (int8_t)PACKET_USE_BED << (int32_t)id << (int8_t)inBed << (int32_t)x << (int8_t)y << (int32_t)z;
       return ret;
     }
+
+    // New / Invalid (http://mc.kev009.com/Protocol#New.2FInvalid_State_.280x46.29)
+    static Packet newInvalidState( int8_t reason, int8_t gamemode = (int8_t)0)
+    {
+      Packet ret;
+      ret << (int8_t)PACKET_NEW_INVALID_STATE << (int8_t)reason << (int8_t)gamemode;
+      return ret;
+    }
 };
 #endif

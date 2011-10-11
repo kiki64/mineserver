@@ -181,6 +181,7 @@ public:
   bool popMap();
 
   bool teleport(double x, double y, double z, size_t map = -1);
+  bool teleport(size_t map);
   bool spawnUser(int x, int y, int z);
   bool spawnOthers();
   bool sethealth(int16_t userHealth);
@@ -190,7 +191,7 @@ public:
   bool isUnderwater();
 
   void clearLoadingMap();
-
+  bool setRespawn(int32_t x, int8_t y, int32_t z);
 
   // Getter/Setter for item currently in hold
   int16_t currentItemSlot();

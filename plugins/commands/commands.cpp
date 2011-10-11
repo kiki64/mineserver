@@ -306,12 +306,17 @@ void setSpawn(std::string user, std::string command, std::deque<std::string> arg
 
 void userWorld(std::string user, std::string command, std::deque<std::string> args)
 {
-  if(args.size() == 1)
+  if(args.size() == 0)
   {
-     double x,y,z;
-     mineserver->user.getPosition(user.c_str(), &x,&y,&z,NULL,NULL,NULL);
-     mineserver->logger.log(LOG_INFO, "plugin.commands", (user + args[0]).c_str());
-     mineserver->user.teleportMap(user.c_str(), x,y+2,z,atoi(args[0].c_str()));
+    //TODO: Find some way to display world names for user
+    std::string temp = "Worlds: ";
+    mineserver->chat.sendmsgTo(user.c_str(), temp.c_str());
+  }
+  else if(args.size() == 1)
+  {
+    //TODO: if arg is a string we need to look up its number and use that.
+
+    mineserver->user.teleportMap(user.c_str(), atoi(args[0].c_str()));
   }
 
 }

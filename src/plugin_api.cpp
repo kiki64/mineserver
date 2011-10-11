@@ -455,7 +455,7 @@ bool user_teleport(const char* user, double x, double y, double z)
   return false;
 }
 
-bool user_teleportMap(const char* user, double x, double y, double z, size_t map)
+bool user_teleportMap(const char* user, size_t map)
 {
   if (map >= Mineserver::get()->mapCount())
   {
@@ -464,7 +464,7 @@ bool user_teleportMap(const char* user, double x, double y, double z, size_t map
   User* tempUser = userFromName(std::string(user));
   if (tempUser != NULL && map != tempUser->pos.map)
   {
-    tempUser->teleport(x, y, z, map);
+    tempUser->teleport(map);
     return true;
   }
   return false;
