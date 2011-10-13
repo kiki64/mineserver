@@ -166,10 +166,11 @@ int defaultDamage(int item)
 
 void spawn()
 {
+  //TODO: make the getTime below depend on what map we are in.
   if (MyMobs.size() < maxMobs &&
       time(NULL)-lastSpawn > 2 &&
       mineserver->user.getCount() > 0 &&
-      mineserver->map.getTime() <= 18000)
+      mineserver->map.getTime(0) <= 18000)
   {
     int randomPlayer = mineserver->tools.uniformInt(0, mineserver->user.getCount() - 1);
     double x,y,z;

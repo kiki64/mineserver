@@ -1669,9 +1669,6 @@ void Map::sendToUser(User* user, int x, int z, bool login)
   }
 
 
-  // Chunk
-  (*p) << Protocol::mapChunk( (int32_t)(mapposx * 16), (int16_t)0, (int32_t)(mapposz * 16), (int8_t)15, (int8_t)127, (int8_t)15 );
-
   memcpy(&mapdata[0], chunk->blocks, 32768);
   memcpy(&mapdata[32768], chunk->data, 16384);
   memcpy(&mapdata[32768 + 16384], chunk->blocklight, 16384);
@@ -1683,7 +1680,8 @@ void Map::sendToUser(User* user, int x, int z, bool login)
   // Compress data with zlib deflate
   compress(buffer, &written, &mapdata[0], 81920);
 
-  (*p) << (int32_t)written;
+  // Chunk
+  (*p) << Protocol::mapChunk( (int32_t)(mapposx * 16), (int16_t)0, (int32_t)(mapposz * 16), (int8_t)15, (int8_t)127, (int8_t)15, (int32_t)written );
   (*p).addToWrite(buffer, written);
 
   //Push sign data to player

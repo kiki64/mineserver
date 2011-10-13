@@ -5,7 +5,7 @@
 #include "tools.h"
 
 /* This file introduces a basic abstraction over raw protocol packets format.
- * This is needed for varuios protocol updates - we need to change the raw format
+ * This is needed for various protocol updates - we need to change the raw format
  * only in one place. 
  * The implementation is totally in header to be inlined and optimized out.
  *
@@ -130,11 +130,11 @@ class Protocol
     }
 
     // Login Response (http://mc.kev009.com/Protocol#Server_to_Client)
-    static Packet loginResponse(int eid)
+    static Packet loginResponse(int32_t eid, int64_t mapSeed, int32_t serverMode, int8_t dimension, int8_t difficulty, uint8_t worldHeight, uint8_t maxPlayers)
     {
       Packet ret;
-      //TODO: Max Players, Max Height, Dimension, Server Mode
-      ret << (int8_t)PACKET_LOGIN_RESPONSE << (int32_t)eid << std::string("") << (int64_t)0 << (int32_t)0 << (int8_t)0 << (int8_t)2 << (int8_t)-128 << (int8_t)50;
+      ret << (int8_t)PACKET_LOGIN_RESPONSE << (int32_t)eid << "" << (int64_t)mapSeed << (int32_t)serverMode 
+          << (int8_t)dimension << (int8_t)difficulty << (int8_t)worldHeight << (int8_t)maxPlayers;
       return ret;
     }
 
@@ -213,10 +213,10 @@ class Protocol
     }
 
     // Respawn (http://mc.kev009.com/Protocol#Respawn_.280x09.29)
-    static Packet respawn(int world = 0)
+    static Packet respawn(int8_t world, int8_t difficulty, int8_t creativeMode, int16_t worldHeight, int64_t mapSeed)
     {
       Packet ret;
-      ret << (int8_t)PACKET_RESPAWN << (int8_t)world << (int8_t)1 << (int8_t)0 << (int16_t)128 << (int64_t)0;
+      ret << (int8_t)PACKET_RESPAWN << (int8_t)world << (int8_t)difficulty << (int8_t)creativeMode << (int16_t)worldHeight << (int64_t)mapSeed;
       return ret;
     }
 
@@ -277,20 +277,22 @@ class Protocol
     }
 
     // Add Object (http://mc.kev009.com/Protocol#Add_Object.2FVehicle_.280x17.29)
-    static Packet addObject( int32_t EID, int8_t type, int32_t x, int32_t y, int32_t z, int32_t flag )
+    static Packet addObject( int32_t EID, int8_t type, int32_t x, int32_t y, int32_t z, int32_t flag, int16_t x2 = 0, int16_t y2 = 0, int16_t z2 = 0)
     {
-      //TODO: there are three values after the flag, as of 9/18/2011 the wiki is not sure for a fact what it represents.
       Packet ret;
       ret << (int8_t)PACKET_ADD_OBJECT << (int32_t)EID << (int8_t)type << (int32_t)x << (int32_t)y << (int32_t)z << (int32_t)flag;
+      if( flag > 0 )
+      {
+        ret << x2 << y2 << z2;
+      }
       return ret;
     }
 
     // Map Chunk (http://mc.kev009.com/Protocol#Map_Chunk_.280x33.29)
-    // Doesn't deal with the map data. To be updated
-    static Packet mapChunk( int32_t x, int16_t y, int32_t z, int8_t sizeX, int8_t sizeY, int8_t sizeZ )
+    static Packet mapChunk( int32_t x, int16_t y, int32_t z, int8_t sizeX, int8_t sizeY, int8_t sizeZ, int32_t data )
     {
       Packet ret;
-      ret << (int8_t)PACKET_MAP_CHUNK << (int32_t)x << (int16_t)y << (int32_t)z << (int8_t)sizeX << (int8_t)sizeY << (int8_t)sizeZ;
+      ret << (int8_t)PACKET_MAP_CHUNK << (int32_t)x << (int16_t)y << (int32_t)z << (int8_t)sizeX << (int8_t)sizeY << (int8_t)sizeZ << data;
       return ret;
     }
 
@@ -303,7 +305,7 @@ class Protocol
     }
 
     // Multi Block (http://mc.kev009.com/Protocol#Multi_Block_Change_.280x34.29)
-    // Doesn't deal with map data. To be updated
+    // The map data is handled after it is not included.
     static Packet multiBlock( int32_t chunkX, int32_t chunkZ, int16_t size )
     {
       Packet ret;
@@ -320,11 +322,10 @@ class Protocol
     }
 
     // Open Window (http://mc.kev009.com/Protocol#Open_window_.280x64.29)
-    // To be updated. Still needs to be done.
     static Packet openWindow( int8_t windowID, int8_t inventoryType, std::string windowTitle, int8_t slots )
     {
       Packet ret;
-      ret << (int8_t)PACKET_OPEN_WINDOW << (int8_t)windowID  << (int8_t)inventoryType << (std::string)windowTitle << (int8_t)slots;
+      ret << (int8_t)PACKET_OPEN_WINDOW << (int8_t)windowID << (int8_t)inventoryType << (std::string)windowTitle << (int8_t)slots;
       return ret;
     }
 
@@ -345,7 +346,7 @@ class Protocol
     }
 
     // Explosion (http://mc.kev009.com/Protocol#Explosion_.280x3C.29)
-    //TODO: Fix so that we include records.
+    // The records of what blocks are removed is handled else where
     static Packet explosion( double centerX, double centerY, double centerZ, float radius, int32_t count)
     {
       Packet ret;

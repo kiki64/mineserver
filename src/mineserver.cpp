@@ -145,7 +145,7 @@ int main(int argc, char* argv[])
   std::string cfg;
   std::vector<std::string> overrides;
 
-  for (int i = 1; i < argc; i++)
+  for (uint8_t i = 1; i < argc; i++)
   {
     const std::string arg(argv[i]);
 
@@ -173,8 +173,8 @@ int main(int argc, char* argv[])
   const std::string path_exe = pathOfExecutable();
   unsigned int search_count = 0;
 
-  std::cout << "Executable is in directory \"" << path_exe << "\".\n"
-            << "Home/App directory is \"" << getHomeDir() << "\".\n"
+  std::cout /*<< "Executable is in directory \"" << path_exe << "\".\n"
+            << "Home/App directory is \"" << getHomeDir() << "\".\n"*/
             << "Searching for configuration file..." << std::endl;
 
   if (!cfg.empty())
@@ -195,38 +195,35 @@ int main(int argc, char* argv[])
   }
   if (cfg.empty())
   {
-#ifdef DEBUG
-    std::cout << ++search_count << ". in executable directory: ";
-    if (fileExists(path_exe + PATH_SEPARATOR + CONFIG_FILE))
+    std::cout << ++search_count << ". in home/app directory: ";
+
+    cfg = getHomeDir() + PATH_SEPARATOR + CONFIG_FILE;
+    Mineserver::get()->config()->config_path = getHomeDir();
+    if (fileExists(getHomeDir() + PATH_SEPARATOR + CONFIG_FILE))
     {
-      cfg = path_exe + PATH_SEPARATOR + CONFIG_FILE;
-      Mineserver::get()->config()->config_path = path_exe;
       std::cout << "FOUND at \"" << cfg << "\"!\n";
     }
     else
     {
-#endif
-      std::cout << "not found\n"
-                << ++search_count << ". in home/app directory: ";
+      std::cout << "not found\n";
 
-      cfg = getHomeDir() + PATH_SEPARATOR + CONFIG_FILE;
-      Mineserver::get()->config()->config_path = getHomeDir();
-
-      if (fileExists(getHomeDir() + PATH_SEPARATOR + CONFIG_FILE))
+      std::cout << ++search_count << ". in executable directory: ";
+      if (fileExists(path_exe + PATH_SEPARATOR + "files" + PATH_SEPARATOR + CONFIG_FILE))
       {
+        cfg = path_exe + PATH_SEPARATOR + "files" + PATH_SEPARATOR + CONFIG_FILE;
+        Mineserver::get()->config()->config_path = path_exe + PATH_SEPARATOR + "files";
         std::cout << "FOUND at \"" << cfg << "\"!\n";
       }
       else
       {
+        // Factory default is home/app directory
         std::cout << "not found\n"
                   << "No config file found! We will place the factory default in \"" << cfg << "\"." << std::endl;
       }
-#ifdef DEBUG
     }
-#endif
   }
   std::cout << "Configuration directory is \"" << Mineserver::get()->config()->config_path << "\"." << std::endl;
-  
+
   // load config
   Config & config = *Mineserver::get()->config();
   if (!config.load(cfg))
@@ -235,6 +232,18 @@ int main(int argc, char* argv[])
   }
 
   LOG2(INFO, "Using config: " + cfg);
+  
+
+  //Now that we have the config from the exe folder, we are going to copy 
+  //  everything to the home/app folder.
+  if( Mineserver::get()->config()->config_path == path_exe + PATH_SEPARATOR + "files" )
+  {
+    Mineserver::get()->config()->config_path = getHomeDir();
+    cfg = getHomeDir() + PATH_SEPARATOR + CONFIG_FILE;
+  }
+
+  // create home and copy files if necessary
+  Mineserver::get()->configDirectoryPrepare(Mineserver::get()->config()->config_path);
   
   if (overrides.size())
   {
@@ -251,9 +260,6 @@ int main(int argc, char* argv[])
       return EXIT_FAILURE;
     }
   }
-  
-  // create home and copy files if necessary
-  Mineserver::get()->configDirectoryPrepare(Mineserver::get()->config()->config_path);
 
   bool ret = Mineserver::get()->init();
   
@@ -328,7 +334,7 @@ bool Mineserver::init()
     const std::string newvalue = relativeToAbsolute(node->sData());
 
     node->setData(newvalue);
-    LOG2(INFO, std::string(vars[i]) + " = \"" + newvalue + "\"");
+    //LOG2(INFO, std::string(vars[i]) + " = \"" + newvalue + "\"");
   }
 
   if (error)
@@ -837,16 +843,17 @@ bool Mineserver::configDirectoryPrepare(const std::string& path)
 {
   const std::string distsrc = pathOfExecutable() + PATH_SEPARATOR + CONFIG_DIR_DISTSOURCE;
 
-  std::cout << std::endl
+  /*std::cout << std::endl
             << "configDirectoryPrepare(): target directory = \"" << path
             << "\", distribution source is \"" << distsrc << "\"." << std::endl
             << std::endl;
+            */
 
   struct stat st;
   //Create Mineserver directory
   if (stat(path.c_str(), &st) != 0)
   {
-    LOG2(INFO, "Creating: " + path);
+    //LOG2(INFO, "Creating: " + path);
     if (!makeDirectory(path))
     {
       LOG2(ERROR, path + ": " + strerror(errno));
@@ -929,7 +936,7 @@ bool Mineserver::configDirectoryPrepare(const std::string& path)
              (temp[i].substr(temp[i].size() - 3).compare(".so") == 0))
     {
       namein  = pathOfExecutable() + PATH_SEPARATOR + directories[1] + PATH_SEPARATOR + directories[0] + PATH_SEPARATOR + temp[i];
-      nameout = path + PATH_SEPARATOR + directories[1] + PATH_SEPARATOR + temp[i];
+      nameout = path + PATH_SEPARATOR + directories[0] + PATH_SEPARATOR + temp[i];
     }
     else
     {

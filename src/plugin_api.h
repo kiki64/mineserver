@@ -43,6 +43,7 @@
 #endif
 
 #include "logtype.h"
+#include "user.h"
 
 #ifdef WIN32
 #define PLUGIN_API_EXPORT extern "C" __declspec(dllexport)
@@ -97,6 +98,7 @@ struct user_pointer_struct
   bool (*teleportMap)(const char* user, size_t map);
   int (*getCount)();
   const char* (*getUserNumbered)(int c);
+  User* (*getUserString)(std::string c);
   bool (*getPositionW)(const char* user, double* x, double* y, double* z, int* w, float* yaw, float* pitch, double* stance);
   bool (*addItem)(const char* user, int item, int count, int health);
   bool (*hasItem)(const char* user, int item, int count, int health);
@@ -129,8 +131,8 @@ struct logger_pointer_struct
 struct map_pointer_struct
 {
   void (*createPickupSpawn)(int x, int y, int z, int type, int count, int health, const char* user);
-  bool (*setTime)(int timeValue);
-  int (*getTime)();
+  bool (*setTime)(int timeValue, int mapNum);
+  int (*getTime)(int mapNum);
   void (*getSpawn)(int* x, int* y, int* z);
   void (*setSpawn)(int x, int y, int z);
   bool (*getBlock)(int x, int y, int z, unsigned char* type, unsigned char* meta);

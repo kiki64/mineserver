@@ -267,22 +267,23 @@ bool chat_handleMessage(const char* username, const char* message)
 }
 
 // MAP WRAPPER FUNCTIONS
-bool map_setTime(int timeValue)
+bool map_setTime(int timeValue, int mapNum)
 {
-  Mineserver::get()->map(0)->mapTime = timeValue;
-  Packet pkt;
-  pkt << Protocol::timeUpdate( (int64_t)Mineserver::get()->map(0)->mapTime );
+  Mineserver::get()->map(mapNum)->mapTime = timeValue;
 
-  if (!User::all().empty())
+  for (std::set<User*>::const_iterator it = Mineserver::get()->users().begin(); it != Mineserver::get()->users().end(); ++it)
   {
-    (*User::all().begin())->sendAll(pkt);
+    if( (*it)->pos.map == mapNum )
+    {
+      (*it)->buffer << Protocol::timeUpdate( (int64_t)Mineserver::get()->map(mapNum)->mapTime );
+    }
   }
   return true;
 }
 
-int map_getTime()
+int map_getTime(int mapNum)
 {
-  return (int64_t)Mineserver::get()->map(0)->mapTime;
+  return (int64_t)Mineserver::get()->map(mapNum)->mapTime;
 }
 
 void map_createPickupSpawn(int x, int y, int z, int type, int count, int health, const char* user)
@@ -501,6 +502,18 @@ const char* user_getUserNumbered(int c)
   std::set<User*>::const_iterator it = Mineserver::get()->users().begin();
   std::advance(it, c);
   return (*it)->nick.c_str();
+}
+
+User* user_getUserString(std::string c)
+{
+  for (std::set<User*>::const_iterator it = Mineserver::get()->users().begin(); it != Mineserver::get()->users().end(); ++it)
+  {
+    if( (*it)->nick.compare(c.c_str()) == 0 )
+    {
+      return (*it);
+    }
+  }
+  return NULL;
 }
 
 bool user_getItemInHand(const char* user, int* type, int* meta, int* quant)

@@ -588,9 +588,12 @@ void setTime(std::string user, std::string command, std::deque<std::string> args
       timeValue = "18000";
     }
 
-    mineserver->map.setTime(atoi(timeValue.c_str()));
+    User* temp = mineserver->user.getUserString(user);
 
-    mineserver->chat.sendmsgTo(user.c_str(),"World time changed.");
+    mineserver->map.setTime(atoi(timeValue.c_str()), temp->pos.map);
+
+    std::string tempStr = "World time changed in: " + temp->pos.map;
+    mineserver->chat.sendmsgTo(user.c_str(),tempStr.c_str());
   }
   else
   {
@@ -600,7 +603,9 @@ void setTime(std::string user, std::string command, std::deque<std::string> args
 
 void getTime(std::string user, std::string command, std::deque<std::string> args)
 {
-  std::string msg = "The current server time is " + dtos(mineserver->map.getTime());
+  User* temp = mineserver->user.getUserString(user);
+
+  std::string msg = "The current server time is " + dtos(mineserver->map.getTime(temp->pos.map));
   mineserver->chat.sendmsgTo(user.c_str(), msg.c_str());
 }
 

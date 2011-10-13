@@ -39,6 +39,8 @@
 #include "mob.h"
 #include "logger.h"
 #include "protocol.h"
+#include "config.h"
+#include "tools.h"
 
 #define LOADBLOCK(x,y,z) Mineserver::get()->map(pos.map)->getBlock(int(std::floor(double(x))), int(std::floor(double(y))), int(std::floor(double(z))), &type, &meta)
 
@@ -203,7 +205,10 @@ bool User::sendLoginInfo()
   loadData();
 
   // Login OK package
-  buffer << Protocol::loginResponse(UID);
+  buffer << Protocol::loginResponse(UID, Mineserver::get()->map(pos.map)->mapSeed, Mineserver::get()->map(pos.map)->mapMode, 
+    Mineserver::get()->map(pos.map)->mapDimension, 0,
+    Mineserver::get()->map(pos.map)->mapHeight, Mineserver::get()->config()->iData("system.user_limit"));
+
   spawnOthers();
 
   // Put nearby chunks to queue
@@ -560,17 +565,19 @@ bool User::updatePosM(double x, double y, double z, size_t map, double stance)
     popMap();
 
     // Put nearby chunks to queue
-    for (int x = -viewDistance; x <= viewDistance; x++)
+    for (int xloop = -viewDistance; xloop <= viewDistance; xloop++)
     {
-      for (int z = -viewDistance; z <= viewDistance; z++)
+      for (int zloop = -viewDistance; zloop <= viewDistance; zloop++)
       {
-        addQueue((int32_t)pos.x / 16 + x, (int32_t)pos.z / 16 + z);
+        addQueue((int32_t)pos.x / 16 + xloop, (int32_t)pos.z / 16 + zloop);
       }
     }
     // Push chunks to user
     pushMap();
 
-    buffer << Protocol::respawn() << Protocol::playerPositionAndLook( x, y, stance, z, pos.yaw, pos.pitch, true) << Protocol::timeUpdate(Mineserver::get()->map(map)->mapTime);
+    buffer << Protocol::respawn(Mineserver::get()->map(pos.map)->mapDimension, 0, Mineserver::get()->map(pos.map)->mapMode, Mineserver::get()->map(pos.map)->mapHeight, Mineserver::get()->map(pos.map)->mapSeed) 
+           << Protocol::playerPositionAndLook( x, y, stance, z, pos.yaw, pos.pitch, true) 
+           << Protocol::timeUpdate(Mineserver::get()->map(map)->mapTime);
 
   }
   return false;
@@ -1469,7 +1476,7 @@ bool User::respawn()
   this->foodPoints = 20;
   this->foodSaturation = 5.0F;
   this->timeUnderwater = 0;
-  buffer << Protocol::respawn(); //FIXME: send the correct world type (ender, normal, nether)
+  buffer << Protocol::respawn(Mineserver::get()->map(pos.map)->mapDimension, 0, Mineserver::get()->map(pos.map)->mapMode, Mineserver::get()->map(pos.map)->mapHeight, Mineserver::get()->map(pos.map)->mapSeed);
   Packet destroyPkt;
   destroyPkt << Protocol::destroyEntity(UID);
   sChunk* chunk = Mineserver::get()->map(pos.map)->getMapData(blockToChunk((int32_t)pos.x), blockToChunk((int32_t)pos.z));

@@ -28,7 +28,7 @@
 #include "mineserver.h"
 #include "entityManager.h"
 
-#include "entities\entity.h"
+#include "entities/entity.h"
 
 void EntityManager::update()
 {

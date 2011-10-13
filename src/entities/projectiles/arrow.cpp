@@ -25,6 +25,8 @@
   SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <cmath>
+
 #include "../entity.h"
 #include "arrow.h"
 
@@ -68,11 +70,11 @@ EntityArrow::EntityArrow(User* user, int8_t ID)
 
   if( user->pos.pitch < 0 )
   {
-    tempy = ( distFromUser * abs(sin(user->pos.pitch / 90.f))) + (user->pos.y + 1.5f) * 32;
+    tempy = ( distFromUser * fabs(sin(user->pos.pitch / 90.f))) + (user->pos.y + 1.5f) * 32;
   }
   else if ( user->pos.pitch > 0 )
   {
-    tempy = -( distFromUser * abs(sin(user->pos.pitch / 90.f))) + (user->pos.y + 1.5f) * 32;
+    tempy = -( distFromUser * fabs(sin(user->pos.pitch / 90.f))) + (user->pos.y + 1.5f) * 32;
   }
 
   if( userYaw != 0 && userYaw != 180 )

@@ -102,6 +102,10 @@ public:
   // Map seed
   int64_t mapSeed;
 
+  int8_t mapDimension; // Map Dimension - Ender, Normal, Nether
+  int8_t mapMode; // Map Mode - Survival / Creative
+  int16_t mapHeight;
+
   // Get pointer to struct
   sChunk* getMapData(int x, int z, bool generate = true);
 
