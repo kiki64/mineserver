@@ -1,13 +1,12 @@
 # Input
 width 2
 height 2
-
 <-
-339 339
-339 334
+1 1
+1 1
 ->
 
 # Output
-outputcount 1
-outputtype 340
+outputcount 4
+outputtype 98
 outputhealth 0

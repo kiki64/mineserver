@@ -1,0 +1,12 @@
+# Input
+width 2
+height 2
+<-
+24 24
+24 24
+->
+
+# Output
+outputcount 4
+outputtype 24
+outputhealth 2

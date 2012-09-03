@@ -2,12 +2,12 @@
 width 3
 height 3
 <-
--1 -1 280
--1 280 287
-280 -1 287
+49 49 49
+49 381 49
+49 49 49
 ->
 
 # Output
 outputcount 1
-outputtype 346
+outputtype 130
 outputhealth 0

@@ -2,11 +2,11 @@
 width 3
 height 2
 <-
-280 5 280
-280 5 280
+48 48 48
+48 48 48
 ->
 
 # Output
 outputcount 6
-outputtype 107
-outputhealth 0
+outputtype 139
+outputhealth 1

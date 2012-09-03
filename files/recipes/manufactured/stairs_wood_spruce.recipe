@@ -2,12 +2,12 @@
 width 3
 height 3
 <-
-5 -1 -1
-5  5 -1
-5  5  5
+-1 -1 5:1
+-1 5:1 5:1
+5:1 5:1 5:1
 ->
 
 # Output
 outputcount 4
-outputtype 53
+outputtype 134
 outputhealth 0

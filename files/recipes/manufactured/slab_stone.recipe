@@ -2,10 +2,10 @@
 width 3
 height 1
 <-
-4  4  4
+1  1  1
 ->
 
 # Output
-outputcount 3
+outputcount 6
 outputtype 44
-outputhealth 3
+outputhealth 0

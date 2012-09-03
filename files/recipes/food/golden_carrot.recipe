@@ -1,13 +1,14 @@
 # Input
 width 3
 height 3
+
 <-
--1 -1 280
--1 280 287
-280 -1 287
+371 371 371
+371 391 371
+371 371 371
 ->
 
 # Output
 outputcount 1
-outputtype 346
+outputtype 396
 outputhealth 0
