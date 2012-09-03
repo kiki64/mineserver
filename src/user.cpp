@@ -248,15 +248,12 @@ bool User::sendLoginInfo()
     inv[i].sendUpdate();
   }
   
-
-  // Teleport player (again)
-  teleport(pos.x, pos.y + 2, pos.z);
+  //Send the player their previous position and yaw and pitch from when they logged off.
+  buffer << Protocol::playerPositionAndLook((int32_t)pos.x, (int32_t)(pos.y + 2), pos.stance, (int32_t)pos.z, pos.yaw, pos.pitch, true);
 
   ServerInstance->chat()->sendMsg(this, nick + " connected!", Chat::ALL);
 
   sethealth(health);
-  logged = true;
-
 
   return true;
 }
@@ -366,7 +363,7 @@ bool User::loadData()
 
   std::vector<NBT_Value*>* rot = nbtPlayer["Rotation"]->GetList();
   pos.yaw = (float)(*(*rot)[0]);
-  pos.yaw = (float)(*(*rot)[1]);
+  pos.pitch = (float)(*(*rot)[1]);
 
   std::vector<NBT_Value*>* _inv = nbtPlayer["Inventory"]->GetList();
   std::vector<NBT_Value*>::iterator iter = _inv->begin(), end = _inv->end();
@@ -779,36 +776,26 @@ bool User::sendOthers(uint8_t* data, size_t len)
 
 int8_t User::relativeToBlock(const int32_t x, const int16_t y, const int32_t z)
 {
-  int8_t direction;
-  double diffX, diffZ;
+  float diffX, diffZ;
   diffX = x - this->pos.x;
   diffZ = z - this->pos.z;
 
-  if (diffX > diffZ)
+  if (abs(diffX) > abs(diffZ))
   {
     // We compare on the x axis
     if (diffX > 0)
-    {
-      direction = BLOCK_BOTTOM;
-    }
+      return RELATIVE_EAST;
     else
-    {
-      direction = BLOCK_EAST;
-    }
+      return RELATIVE_WEST;
   }
   else
   {
     // We compare on the z axis
     if (diffZ > 0)
-    {
-      direction = BLOCK_SOUTH;
-    }
+      return RELATIVE_SOUTH;
     else
-    {
-      direction = BLOCK_NORTH;
-    }
+      return RELATIVE_NORTH;
   }
-  return direction;
 }
 
 bool User::sendAll(const Packet& packet)
@@ -1104,7 +1091,7 @@ bool User::teleport(double x, double y, double z, size_t map)
 
 bool User::spawnUser(int x, int y, int z)
 {
-  Packet pkt = Protocol::namedEntitySpawn(UID, nick, x, y, z, 0, 0, 0);
+  Packet pkt = Protocol::namedEntitySpawn(UID, nick, x, y, z, pos.yaw, pos.pitch, currentItemSlot());
   sChunk* chunk = ServerInstance->map(pos.map)->getChunk(blockToChunk(x >> 5), blockToChunk(z >> 5));
   if (chunk != NULL)
   {
@@ -1120,7 +1107,7 @@ bool User::spawnOthers()
     //    if ((*it)->logged && (*it)->UID != this->UID && (*it)->nick != this->nick)
     if ((*it)->logged)
     {
-      loginBuffer << Protocol::namedEntitySpawn((*it)->UID, (*it)->nick, (*it)->pos.x, (*it)->pos.y, (*it)->pos.z, 0, 0, 0);
+      loginBuffer << Protocol::namedEntitySpawn((*it)->UID, (*it)->nick, (*it)->pos.x, (*it)->pos.y, (*it)->pos.z, (*it)->pos.yaw, (*it)->pos.pitch,  (*it)->currentItemSlot());
       for (int b = 0; b < 5; b++)
       {
         const int n = b == 0 ? (*it)->curItem + 36 : 9 - b;

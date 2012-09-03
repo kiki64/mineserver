@@ -1182,6 +1182,9 @@ bool Inventory::onwindowOpen(User* user, int8_t type, int32_t x, int32_t y, int3
   {
   case WINDOW_CHEST:
   case WINDOW_LARGE_CHEST:
+    //Chest Open Animation
+    user->sendAll(Protocol::blockAction( x, y, z, 1, 1, BLOCK_CHEST ));
+    user->sendAll(Protocol::namedSoundEffect( "random.chestopen", x, y, z, 9, 63 ));
     pinv = &openChests;
     break;
   case WINDOW_FURNACE:
@@ -1230,6 +1233,9 @@ bool Inventory::onwindowClose(User* user, int8_t type, int32_t x, int32_t y, int
   {
   case WINDOW_CHEST:
   case WINDOW_LARGE_CHEST:
+    //Chest Close Animation
+    user->sendAll(Protocol::blockAction( x, y, z, 1, 0, BLOCK_CHEST ));
+    user->sendAll(Protocol::namedSoundEffect( "random.chestclosed", x, y, z, 9, 63 ));
     pinv = &openChests;
     break;
   case WINDOW_FURNACE:

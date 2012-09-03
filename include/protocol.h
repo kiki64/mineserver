@@ -321,9 +321,27 @@ class Protocol
       }      
       return ret;
     }
-    static Packet gameState(int8_t reason, int8_t data){
+
+    static Packet gameState(int8_t reason, int8_t data)
+    {
       Packet ret;
       ret<< (int8_t)PACKET_GAMESTATE << reason << data;
+      return ret;
+    }
+
+    // Block Action (http://mc.kev009.com/Protocol#Block_Action_.280x36.29)
+    static Packet blockAction( int32_t x, int16_t y, int32_t z, int8_t instrument, int8_t pitch, int16_t blockID )
+    {
+      Packet ret;
+      ret << (int8_t)PACKET_BLOCK_ACTION << (int32_t)x << (int16_t)y << (int32_t)z << (int8_t)instrument << (int8_t)pitch << (int16_t)blockID;
+      return ret;
+    }
+
+    // Named Sound Effect (http://www.wiki.vg/Protocol#Named_Sound_Effect_.280x3E.29)
+    static Packet namedSoundEffect( std::string sound_Name, int32_t x, int32_t y, int8_t z, float volume, int8_t pitch )
+    {
+      Packet ret;
+      ret << (int8_t)PACKET_NAMED_SOUND_EFFECT << (std::string)sound_Name << (int32_t)x << (int32_t)y << (int32_t)z << (float)volume << (int8_t)pitch;
       return ret;
     }
 };
