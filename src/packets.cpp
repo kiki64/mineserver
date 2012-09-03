@@ -752,7 +752,7 @@ int PacketHandler::player_digging(User* user)
                              || block == BLOCK_BROWN_MUSHROOM || block == BLOCK_RED_MUSHROOM
                              || block == BLOCK_REDSTONE_TORCH_OFF || block == BLOCK_REDSTONE_TORCH_ON))
       {
-          status = BLOCK_STATUS_BLOCK_BROKEN;
+          status = BLOCK_STATUS_FINISH_DIGGING;
       }
   }
 
@@ -773,7 +773,7 @@ int PacketHandler::player_digging(User* user)
     break;
   }
 
-  case BLOCK_STATUS_BLOCK_BROKEN:
+  case BLOCK_STATUS_FINISH_DIGGING:
   {
     //Player tool usage calculation etc
 
