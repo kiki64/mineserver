@@ -37,7 +37,12 @@ class User;
 class BlockStair: public BlockBasic
 {
 public:
-  inline bool affectedBlock(int block) const { return block == BLOCK_WOODEN_STAIRS || block == BLOCK_COBBLESTONE_STAIRS; }
+  inline bool affectedBlock(int block) const 
+  { 
+    return block == BLOCK_WOODEN_STAIRS || block == BLOCK_COBBLESTONE_STAIRS || block == BLOCK_BRICK_STAIRS ||
+           block == BLOCK_STONE_BRICK_STAIRS || block == BLOCK_NETHER_BRICK_STAIRS || block == BLOCK_SANDSTONE_STAIRS ||
+           block == BLOCK_SPRUCE_WOOD_STAIRS || block == BLOCK_BIRCH_WOOD_STAIRS || block == BLOCK_JUNGLE_WOOD_STAIRS;
+  }
 
   void onStartedDigging(User* user, int8_t status, int32_t x, int16_t y, int32_t z, int map,  int8_t direction);
   void onDigging(User* user, int8_t status, int32_t x, int16_t y, int32_t z, int map,  int8_t direction);

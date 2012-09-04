@@ -94,16 +94,16 @@ bool BlockBasic::translateDirection(int32_t* x, int16_t* y, int32_t* z, int map,
     switch (direction)
     {
     case BLOCK_SOUTH:
-      *x -= 1;
-      break;
-    case BLOCK_NORTH:
-      *x += 1;
-      break;
-    case BLOCK_EAST:
       *z += 1;
       break;
-    case BLOCK_WEST:
+    case BLOCK_NORTH:
       *z -= 1;
+      break;
+    case BLOCK_EAST:
+      *x += 1;
+      break;
+    case BLOCK_WEST:
+      *x -= 1;
       break;
     case BLOCK_TOP:
       *y += 1;
@@ -133,7 +133,8 @@ bool BlockBasic::isBlockEmpty(const int32_t x, const int16_t y, const int32_t z,
 bool BlockBasic::spawnBlockItem(const int32_t x, const int16_t y, const int32_t z, int map, const uint8_t block, const uint8_t meta)
 {
   DropPtr drop;
-  int16_t item; uint8_t count, item_meta = meta;
+  int16_t item;
+  uint8_t count, item_meta = meta;
   BLOCKDROPS[block]->getDrop(item, count, item_meta);
   if (count)
   {

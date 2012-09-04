@@ -127,25 +127,8 @@ bool BlockLadder::onPlace(User* user, int16_t newblock, int32_t x, int16_t y, in
     return true;
   }
 
-  int8_t ladderDirection = 0;
-  switch (direction)
-  {
-  case BLOCK_WEST:
-    ladderDirection = 2;
-    break;
-  case BLOCK_EAST:
-    ladderDirection = 3;
-    break;
-  case BLOCK_SOUTH:
-    ladderDirection = 4;
-    break;
-  case BLOCK_NORTH:
-    ladderDirection = 5;
-    break;
-  }
-
-  ServerInstance->map(map)->setBlock(x, y, z, (char)newblock, ladderDirection);
-  ServerInstance->map(map)->sendBlockChange(x, y, z, (char)newblock, ladderDirection);
+  ServerInstance->map(map)->setBlock(x, y, z, (char)newblock, direction);
+  ServerInstance->map(map)->sendBlockChange(x, y, z, (char)newblock, direction);
   return false;
 }
 

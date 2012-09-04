@@ -164,6 +164,20 @@ bool BlockTorch::onPlace(User* user, int16_t newblock, int32_t x, int16_t y, int
     break;
   }
 
+  switch(direction)
+  {
+    case BLOCK_SOUTH: direction = 3;
+      break;
+    case BLOCK_WEST: direction = 2;
+      break;
+    case BLOCK_NORTH: direction = 4;
+      break;
+    case BLOCK_EAST: direction = 1;
+      break;
+    default: direction = 5;
+  }
+
+
   ServerInstance->map(map)->setBlock(x, y, z, (char)newblock, direction);
   ServerInstance->map(map)->sendBlockChange(x, y, z, (char)newblock, direction);
 

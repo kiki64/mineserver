@@ -101,20 +101,15 @@ bool Blockjackolantern::onPlace(User* user, int16_t newblock, int32_t x, int16_t
 
   direction = user->relativeToBlock(x, y, z);
 
-  switch (direction)
+  switch(direction)
   {
-  case BLOCK_EAST:
-    direction = BLOCK_SOUTH;
-    break;
-  case BLOCK_WEST:
-    direction = BLOCK_TOP;
-    break;
-  case BLOCK_NORTH:
-    direction = BLOCK_NORTH;
-    break;
-  case BLOCK_SOUTH:
-    direction = BLOCK_BOTTOM;
-    break;
+    case RELATIVE_SOUTH: direction = 2;
+      break;
+    case RELATIVE_WEST: direction = 3;
+      break;
+    case RELATIVE_NORTH: direction = 0;
+      break;
+    case RELATIVE_EAST: direction = 1;
   }
 
   ServerInstance->map(map)->setBlock(x, y, z, char(newblock), char(direction));

@@ -172,8 +172,7 @@ bool BlockChest::onBroken(User* user, int8_t status, int32_t x, int16_t y, int32
                 (*chunk->chests[i]->items())[(size_t)item_i]->getType(),
                 (*chunk->chests[i]->items())[(size_t)item_i]->getCount(),
                 (*chunk->chests[i]->items())[(size_t)item_i]->getHealth(),
-                NULL,
-                false);
+                NULL);
           }
           chunk->chests[i]->items()->pop_back();
         }
@@ -189,8 +188,7 @@ bool BlockChest::onBroken(User* user, int8_t status, int32_t x, int16_t y, int32
                 (*chunk->chests[i]->items())[item_i]->getType(),
                 (*chunk->chests[i]->items())[item_i]->getCount(),
                 (*chunk->chests[i]->items())[item_i]->getHealth(),
-                NULL,
-                false);
+                NULL);
           }
           chunk->chests[i]->items()->pop_back();
         }
@@ -263,6 +261,17 @@ bool BlockChest::onPlace(User* user, int16_t newblock, int32_t x, int16_t y, int
   }
 
   direction = user->relativeToBlock(x, y, z);
+
+  switch(direction)
+  {
+    case RELATIVE_SOUTH: direction = 2;
+      break;
+    case RELATIVE_WEST: direction = 5;
+      break;
+    case RELATIVE_NORTH: direction = 3;
+      break;
+    case RELATIVE_EAST: direction = 4;
+  }
 
   int32_t connectedChestX, connectedChestZ;
   if(findConnectedChest(x, y, z, map, &connectedChestX, &connectedChestZ))

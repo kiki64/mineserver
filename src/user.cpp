@@ -776,25 +776,37 @@ bool User::sendOthers(uint8_t* data, size_t len)
 
 int8_t User::relativeToBlock(const int32_t x, const int16_t y, const int32_t z)
 {
-  float diffX, diffZ;
+  float diffX, diffY, diffZ;
   diffX = x - this->pos.x;
+  diffY = y - this->pos.z;
   diffZ = z - this->pos.z;
 
-  if (abs(diffX) > abs(diffZ))
+  if (abs(diffY) > abs(diffX) && abs(diffY) > abs(diffY))
   {
-    // We compare on the x axis
-    if (diffX > 0)
-      return RELATIVE_EAST;
+    //We compare on the y axis
+    if(diffY > 0)
+      return RELATIVE_TOP;
     else
-      return RELATIVE_WEST;
+      return RELATIVE_BOTTOM;
   }
   else
   {
-    // We compare on the z axis
-    if (diffZ > 0)
-      return RELATIVE_SOUTH;
+    if (abs(diffX) > abs(diffZ))
+    {
+      // We compare on the x axis
+      if (diffX > 0)
+        return RELATIVE_EAST;
+      else
+        return RELATIVE_WEST;
+    }
     else
-      return RELATIVE_NORTH;
+    {
+      // We compare on the z axis
+      if (diffZ > 0)
+        return RELATIVE_SOUTH;
+      else
+        return RELATIVE_NORTH;
+    }
   }
 }
 

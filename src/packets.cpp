@@ -962,6 +962,8 @@ int PacketHandler::player_block_placement(User* user)
   int8_t posx,posy,posz;
 
   user->buffer >> x >> temp_y >> z >> direction >> newblock;
+  y = (uint8_t)temp_y;
+
   if(newblock != -1)
   {
     int8_t count;
@@ -986,9 +988,7 @@ int PacketHandler::player_block_placement(User* user)
     }
   }
 
-  user->buffer  >> posx >> posy >> posz;
-  //newblock;
-  y = (uint8_t)temp_y;
+  user->buffer >> posx >> posy >> posz;
 
   user->buffer.removePacket();
 
@@ -1096,12 +1096,7 @@ int PacketHandler::player_block_placement(User* user)
   LOG(DEBUG, "Packets", "Block_placement: " + dtos(newblock) + " (" + dtos(x) + "," + dtos((int)y) + "," + dtos(z) + ") dir: " + dtos((int)direction));
 #endif
 
-  if (direction)
-  {
-    direction = 6 - direction;
-  }
-
-  //if (ServerInstance->map()->getBlock(x, y, z, &oldblock, &metadata))
+  if (ServerInstance->map(user->pos.map)->getBlock(x, y, z, &oldblock, &metadata))
   {
     uint8_t oldblocktop;
     uint8_t metadatatop;
@@ -1119,16 +1114,16 @@ int PacketHandler::player_block_placement(User* user)
       check_y++;
       break;
     case BLOCK_NORTH:
-      check_x++;
+      check_z--;
       break;
     case BLOCK_SOUTH:
-      check_x--;
-      break;
-    case BLOCK_EAST:
       check_z++;
       break;
+    case BLOCK_EAST:
+      check_x++;
+      break;
     case BLOCK_WEST:
-      check_z--;
+      check_x--;
       break;
     default:
       break;
@@ -1205,6 +1200,7 @@ int PacketHandler::player_block_placement(User* user)
         }
       }
     }
+
     runAllCallback("BlockPlacePost",user->nick.c_str(), x, y, z, newblock, direction);
 
     /* notify neighbour blocks of the placed block */
@@ -1287,6 +1283,7 @@ int PacketHandler::player_block_placement(User* user)
       runAllCallback("BlockNeighbourPlace",user->nick.c_str(), x, y, z - 1);
     }
   }
+
   // Now we're sure we're using it, lets remove from inventory!
 #define INV_TASKBAR_START 36
   if (user->inv[INV_TASKBAR_START + user->currentItemSlot()].getType() == newblock && newblock != -1)

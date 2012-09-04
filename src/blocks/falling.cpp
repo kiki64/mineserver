@@ -37,7 +37,7 @@
 
 bool BlockFalling::affectedBlock(int block) const
 {
-  if (block == BLOCK_SAND || block == BLOCK_SLOW_SAND || block == BLOCK_GRAVEL)
+  if (block == BLOCK_SAND || block == BLOCK_GRAVEL)
     return true;
   return false;
 }

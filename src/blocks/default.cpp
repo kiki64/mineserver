@@ -59,8 +59,8 @@ bool BlockDefault::onBroken(User* user, int8_t status, int32_t x, int16_t y, int
     meta = 0;
   }
 
+  ServerInstance->map(map)->setBlock(x, y, z, (char)BLOCK_AIR, 0);
   ServerInstance->map(map)->sendBlockChange(x, y, z, BLOCK_AIR, 0);
-  ServerInstance->map(map)->setBlock(x, y, z, BLOCK_AIR, 0);
   this->spawnBlockItem(x, y, z, map, block, meta);
   return false;
 }

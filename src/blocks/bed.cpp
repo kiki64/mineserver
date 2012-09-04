@@ -48,6 +48,40 @@ void BlockBed::onStoppedDigging(User* user, int8_t status, int32_t x, int16_t y,
 
 bool BlockBed::onBroken(User* user, int8_t status, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
+  uint8_t block;
+  uint8_t meta;
+  int zMod = 0, xMod = 0;
+
+  if (!ServerInstance->map(map)->getBlock(x, y, z, &block, &meta))
+  {
+    return true;
+  }
+
+  // Find the other part of the bed to remove
+  switch (meta)
+  {
+  // Foot of bed
+  case BLOCK_TOP:
+  case HEAD_OF_BED_EAST: xMod = -1;
+    break;
+  case BLOCK_SOUTH:
+  case HEAD_OF_BED_WEST: xMod = +1;
+    break;
+  case BLOCK_NORTH:
+  case HEAD_OF_BED_NORTH: zMod = -1;
+    break;
+  case BLOCK_BOTTOM:
+  case HEAD_OF_BED_SOUTH: zMod = +1;
+    break;
+  }
+
+  ServerInstance->map(map)->sendBlockChange(x, y, z, BLOCK_AIR, 0);
+  ServerInstance->map(map)->setBlock(x, y, z, BLOCK_AIR, 0);
+
+  ServerInstance->map(map)->setBlock(x + xMod, y, z + zMod, BLOCK_AIR, 0);
+  ServerInstance->map(map)->sendBlockChange(x + xMod, y, z + zMod, BLOCK_AIR, 0);
+
+  //this->spawnBlockItem(x, y, z, map, block);
   return false;
 }
 
@@ -102,28 +136,26 @@ bool BlockBed::onPlace(User* user, int16_t newblock, int32_t x, int16_t y, int32
 
   direction = user->relativeToBlock(x, y, z);
 
-  switch (direction)
+  switch(direction)
   {
-  case BLOCK_EAST:
-    direction = BLOCK_SOUTH;
-	zMod = -1;
-	xMod = 0;
-    break;
-  case BLOCK_BOTTOM:
-    direction = BLOCK_EAST;
-	zMod = 0;
-	xMod = +1;
-    break;
-  case BLOCK_NORTH:
-    direction = BLOCK_NORTH;
-	zMod = 0;
-	xMod = -1;
-    break;
-  case BLOCK_SOUTH:
-    direction = BLOCK_BOTTOM;
-	zMod = +1;
-	xMod = 0;
-    break;
+    case RELATIVE_SOUTH: direction = 0;
+      zMod = +1;
+      break;
+    case RELATIVE_WEST: direction = 1;
+	    xMod = -1;
+      break;
+    case RELATIVE_NORTH: direction = 2;
+      zMod = -1;
+      break;
+    case RELATIVE_EAST: direction = 3;
+	    xMod = +1;
+  }
+
+  // Check where head of the bed will be
+  if (!this->isBlockEmpty(x + xMod, y, z + zMod, map))
+  {
+    revertBlock(user, x + xMod, y, z + zMod, map);
+    return true;
   }
 
   ServerInstance->map(map)->setBlock(x, y, z, (char)newblock, direction);
