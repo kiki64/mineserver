@@ -35,7 +35,7 @@ class User;
 class BlockStep: public BlockBasic
 {
 public:
-  inline bool affectedBlock(int block) const { return block == BLOCK_STEP || block == BLOCK_DOUBLE_STEP; }
+  inline bool affectedBlock(int block) const { return block == BLOCK_STEP || block == BLOCK_DOUBLE_STEP || block == BLOCK_WOODEN_SLAB || block == BLOCK_WOODEN_DOUBLE_SLAB; }
 
   void onStartedDigging(User* user, int8_t status, int32_t x, int16_t y, int32_t z, int map,  int8_t direction);
   void onDigging(User* user, int8_t status, int32_t x, int16_t y, int32_t z, int map,  int8_t direction);
