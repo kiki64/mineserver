@@ -517,32 +517,50 @@ bool User::updatePosM(double x, double y, double z, size_t map, double stance)
 {
   if (map != pos.map && logged)
   {
-
-    // Loop every loaded chunk to make sure no user pointers are left!
-
-    for (ChunkMap::const_iterator it = ServerInstance->map(pos.map)->chunks.begin(); it != ServerInstance->map(pos.map)->chunks.end(); ++it)
+    Packet pkt;
+    pkt << Protocol::destroyEntity(UID);
+    sChunk* chunk = ServerInstance->map(pos.map)->getMapData(blockToChunk((int32_t)pos.x), blockToChunk((int32_t)pos.z));
+    if (chunk != NULL)
     {
-      it->second->users.erase(this);
-
-      if (it->second->users.empty())
-      {
-        ServerInstance->map(pos.map)->releaseMap(it->first.first, it->first.second);
-      }
+      chunk->sendPacket(pkt, this);
     }
 
-    // TODO despawn players who are no longer in view
-    // TODO despawn self to players on last world
     pos.map = map;
     pos.x = x;
     pos.y = y;
     pos.z = z;
-    LOG2(INFO, "World changing");
-    // TODO spawn self to nearby players
-    // TODO spawn players who are NOW in view
-    return false;
+    std::string temp = nick + " is changing worlds.";
+    LOG2(INFO, temp.c_str());
+
+    //Loop through chunks in users known and add them to be removed.
+    while (this->mapKnown.size())
+    {
+      //Add to remove list
+      addRemoveQueue(mapKnown.begin()->x(), mapKnown.begin()->z());
+
+      // Delete from known list
+      delKnown(mapKnown.begin()->x(), mapKnown.begin()->x());
+
+      // Remove from queue
+      mapKnown.erase(mapKnown.begin());
+    }
+    popMap();
+
+    // Put nearby chunks to queue
+    for (int x = -viewDistance; x <= viewDistance; x++)
+    {
+      for (int z = -viewDistance; z <= viewDistance; z++)
+      {
+        addQueue((int32_t)pos.x / 16 + x, (int32_t)pos.z / 16 + z);
+      }
+    }
+    // Push chunks to user
+    pushMap();
+
+    buffer << Protocol::respawn() << Protocol::playerPositionAndLook( x, y, stance, z, pos.yaw, pos.pitch, true) << Protocol::timeUpdate(ServerInstance->map(map)->mapTime);
+
   }
-  updatePos(x, y, z, stance);
-  return true;
+  return false;
 }
 
 bool User::updatePos(double x, double y, double z, double stance)
@@ -1094,10 +1112,10 @@ bool User::teleport(double x, double y, double z, size_t map)
 
   //Also update pos for other players
   updatePosM(x, y, z, map, pos.stance);
-  pushMap();
-  pushMap();
-  pushMap();
-  updatePosM(x, y, z, map, pos.stance);
+  //pushMap();
+  //pushMap();
+  //pushMap();
+  //updatePosM(x, y, z, map, pos.stance);
   return true;
 }
 
