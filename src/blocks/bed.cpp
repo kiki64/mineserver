@@ -81,7 +81,7 @@ bool BlockBed::onBroken(User* user, int8_t status, int32_t x, int16_t y, int32_t
   ServerInstance->map(map)->setBlock(x + xMod, y, z + zMod, BLOCK_AIR, 0);
   ServerInstance->map(map)->sendBlockChange(x + xMod, y, z + zMod, BLOCK_AIR, 0);
 
-  //this->spawnBlockItem(x, y, z, map, block);
+  this->spawnBlockItem(x, y, z, map, block);
   return false;
 }
 
