@@ -312,7 +312,7 @@ bool BlockPlant::isPlant(int num)
   return (num == BLOCK_CROPS || num == BLOCK_CACTUS || num == BLOCK_YELLOW_FLOWER || num == BLOCK_RED_ROSE || num == BLOCK_REED || num == BLOCK_SAPLING || num == BLOCK_RED_MUSHROOM || num == BLOCK_BROWN_MUSHROOM);
 }
 
-bool BlockPlant::onPlace(User* user, int16_t newblock, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
+bool BlockPlant::onPlace(User* user, int16_t newblock, int32_t x, int16_t y, int32_t z, int map, int8_t direction, int8_t posx, int8_t posy, int8_t posz)
 {
   uint8_t oldblock;
   uint8_t oldmeta;

@@ -37,7 +37,7 @@ public:
   inline bool affectedBlock(int block) const { return block == BLOCK_TNT; }
 
   void onStartedDigging(User* user, int8_t status, int32_t x, int16_t y, int map, int32_t z, int8_t direction);
-  bool onPlace(User* user, int16_t newblock, int32_t x, int16_t y, int32_t z, int map, int8_t direction);
+  bool onPlace(User* user, int16_t newblock, int32_t x, int16_t y, int32_t z, int map, int8_t direction, int8_t posx, int8_t posy, int8_t posz);
   bool onInteract(User* user, int32_t x, int16_t y, int32_t z, int map);
   void rb(int32_t x,int16_t y,int32_t z,int map,User* user); // rb=Remove Block
   void explode(User* user, int32_t x, int16_t y, int32_t z, int map);

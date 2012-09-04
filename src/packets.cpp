@@ -1190,7 +1190,7 @@ int PacketHandler::player_block_placement(User* user)
       blockcb = ServerInstance->plugin()->getBlockCB()[i];
       if (blockcb != NULL && blockcb->affectedBlock(newblock))
       {
-        if (blockcb->onPlace(user, newblock, x, y, z, user->pos.map, direction))
+        if (blockcb->onPlace(user, newblock, x, y, z, user->pos.map, direction, posx, posy, posz))
         {
           return PACKET_OK;
         }

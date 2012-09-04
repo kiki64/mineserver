@@ -39,7 +39,7 @@ class BlockCake: public BlockBasic
 public:
   inline bool affectedBlock(int block) const { return block == BLOCK_CAKE || block == ITEM_CAKE; }
 
-  bool onPlace(User* user, int16_t newblock, int32_t x, int16_t y, int32_t z, int map, int8_t direction);
+  bool onPlace(User* user, int16_t newblock, int32_t x, int16_t y, int32_t z, int map, int8_t direction, int8_t posx, int8_t posy, int8_t posz);
   void onStartedDigging(User* user, int8_t status, int32_t x, int16_t y, int32_t z, int map, int8_t direction);
   void onDigging(User* user, int8_t status, int32_t x, int16_t y, int32_t z, int map, int8_t direction);
   bool onBroken(User* user, int8_t status, int32_t x, int16_t y, int32_t z, int map,  int8_t direction);

@@ -42,7 +42,7 @@ class BlockFalling: public BlockBasic
 public:
   bool affectedBlock(int block) const;
   void onNeighbourBroken(User* user, int16_t oldblock, int32_t x, int16_t y, int32_t z, int map, int8_t direction);
-  bool onPlace(User* user, int16_t newblock, int32_t x, int16_t y, int32_t z, int map, int8_t direction);
+  bool onPlace(User* user, int16_t newblock, int32_t x, int16_t y, int32_t z, int map, int8_t direction, int8_t posx, int8_t posy, int8_t posz);
   void onNeighbourMove(User* user, int16_t newblock, int32_t x, int16_t y, int32_t z, int8_t direction, int map);
 private:
   void applyPhysics(User* user, int32_t x, int16_t y, int32_t z, int map);

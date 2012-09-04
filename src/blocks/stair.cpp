@@ -25,6 +25,9 @@
   SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <sstream>
+#include "logger.h"
+
 #include "mineserver.h"
 #include "map.h"
 
@@ -63,16 +66,8 @@ void BlockStair::onNeighbourBroken(User* user, int16_t oldblock, int32_t x, int1
   /* TODO: add code to align stairs? */
 }
 
-bool BlockStair::onPlace(User* user, int16_t newblock, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
+bool BlockStair::onPlace(User* user, int16_t newblock, int32_t x, int16_t y, int32_t z, int map, int8_t direction, int8_t posx, int8_t posy, int8_t posz)
 {
-  //*if (!this->translateDirection(&x, &y, &z, map, direction))
-  //{
-  //  revertBlock(user, x, y, z, map);
-  //  return true;
-  //}
-
-  //direction = user->relativeToBlock(x, y, z);*/
-
   uint8_t oldblock;
   uint8_t oldmeta;
 
@@ -108,9 +103,25 @@ bool BlockStair::onPlace(User* user, int16_t newblock, int32_t x, int16_t y, int
     return true;
   }
 
-  direction = user->relativeToBlock(x, y, z);
-  ServerInstance->map(map)->setBlock(x, y, z, char(newblock), char(direction));
-  ServerInstance->map(map)->sendBlockChange(x, y, z, char(newblock), char(direction));
+  int8_t relative_direction = user->relativeToBlock(x, y, z);
+
+  switch(relative_direction)
+  {
+    case RELATIVE_SOUTH: relative_direction = 2;
+      break;
+    case RELATIVE_WEST: relative_direction = 1;
+      break;
+    case RELATIVE_NORTH: relative_direction = 3;
+      break;
+    case RELATIVE_EAST: relative_direction = 0;
+  }
+
+  //set upside down stair
+  if( (direction != BLOCK_TOP && posy >= (int8_t)8) || direction == BLOCK_BOTTOM )
+    relative_direction ^= 4;
+
+  ServerInstance->map(map)->setBlock(x, y, z, char(newblock), char(relative_direction));
+  ServerInstance->map(map)->sendBlockChange(x, y, z, char(newblock), char(relative_direction));
 
   return false;
 }

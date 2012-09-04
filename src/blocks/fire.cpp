@@ -57,7 +57,7 @@ void BlockFire::onNeighbourBroken(User* user, int16_t oldblock, int32_t x, int16
   ServerInstance->map(map)->sendBlockChange(x, y, z, (char)BLOCK_AIR, 0);
 }
 
-bool BlockFire::onPlace(User* user, int16_t newblock, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
+bool BlockFire::onPlace(User* user, int16_t newblock, int32_t x, int16_t y, int32_t z, int map, int8_t direction, int8_t posx, int8_t posy, int8_t posz)
 {
   uint8_t oldblock;
   uint8_t oldmeta;

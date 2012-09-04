@@ -58,7 +58,7 @@ public:
   virtual void onStoppedDigging(User* user, int8_t status, int32_t x, int16_t y, int32_t z, int map,  int8_t direction);
   virtual bool onBroken(User* user, int8_t status, int32_t x, int16_t y, int32_t z, int map,  int8_t direction);
   virtual void onNeighbourBroken(User* user, int16_t oldblock, int32_t x, int16_t y, int32_t z, int map,  int8_t direction);
-  virtual bool onPlace(User* user, int16_t newblock, int32_t x, int16_t y, int32_t z, int map,  int8_t direction);
+  virtual bool onPlace(User* user, int16_t newblock, int32_t x, int16_t y, int32_t z, int map,  int8_t direction, int8_t posx, int8_t posy, int8_t posz);
   virtual void onNeighbourPlace(User* user, int16_t newblock, int32_t x, int16_t y, int32_t z, int map,  int8_t direction);
   virtual void onReplace(User* user, int16_t newblock, int32_t x, int16_t y, int32_t z, int map,  int8_t direction);
   virtual void onNeighbourMove(User* user, int16_t oldblock, int32_t x, int16_t y, int32_t z, int8_t direction);
