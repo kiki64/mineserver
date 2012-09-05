@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2011, The Mineserver Project
+  Copyright (c) 2012, The Mineserver Project
   All rights reserved.
 
   Redistribution and use in source and binary forms, with or without
@@ -28,7 +28,8 @@
 #include "sys/stat.h"
 
 #include "mineserver.h"
-#ifdef WIN32
+
+#ifdef _WIN32
 #include <windows.h>
 #else
 #include <dlfcn.h>
@@ -58,6 +59,7 @@
 #include "blocks/workbench.h"
 #include "blocks/wood.h"
 #include "blocks/redstone.h"
+#include "blocks/redstoneutil.h"
 #include "blocks/pumpkin.h"
 #include "blocks/step.h"
 #include "blocks/tnt.h"
@@ -69,9 +71,11 @@
 #include "items/food.h"
 #include "items/projectile.h"
 
+bool callbackReturnINTERNAL;
 // Create default hooks
 Plugin::Plugin()
 {
+  /*
   setHook("Timer200", new Hook0<bool>);
   setHook("Timer1000", new Hook0<bool>);
   setHook("Timer10000", new Hook0<bool>);
@@ -86,24 +90,26 @@ Plugin::Plugin()
   setHook("PlayerDamagePre", new Hook3<bool, const char*, const char*, int>);
   setHook("PlayerDamagePost", new Hook3<bool, const char*, const char*, int>);
   setHook("PlayerDisconnect", new Hook3<bool, const char*, uint32_t, uint16_t>);
-  setHook("PlayerDiggingStarted", new Hook5<bool, const char*, int32_t, int8_t, int32_t, int8_t>);
-  setHook("PlayerDigging", new Hook5<bool, const char*, int32_t, int8_t, int32_t, int8_t>);
-  setHook("PlayerDiggingStopped", new Hook5<bool, const char*, int32_t, int8_t, int32_t, int8_t>);
-  setHook("PlayerBlockInteract", new Hook4<bool, const char*, int32_t, int8_t, int32_t>);
-  setHook("BlockBreakPre", new Hook4<bool, const char*, int32_t, int8_t, int32_t>);
-  setHook("BlockBreakPost", new Hook4<bool, const char*, int32_t, int8_t, int32_t>);
-  setHook("BlockNeighbourBreak", new Hook7<bool, const char*, int32_t, int8_t, int32_t, int32_t, int8_t, int32_t>);
-  setHook("BlockPlacePre", new Hook6<bool, const char*, int32_t, int8_t, int32_t, int16_t, int8_t>);
-  setHook("ItemRightClickPre", new Hook6<bool, const char*, int32_t, int8_t, int32_t, int16_t, int8_t>);
-  setHook("BlockPlacePost", new Hook6<bool, const char*, int32_t, int8_t, int32_t, int16_t, int8_t>);
-  setHook("BlockNeighbourPlace", new Hook7<bool, const char*, int32_t, int8_t, int32_t, int32_t, int8_t, int32_t>);
-  setHook("BlockReplacePre", new Hook6<bool, const char*, int32_t, int8_t, int32_t, int16_t, int16_t>);
-  setHook("BlockReplacePost", new Hook6<bool, const char*, int32_t, int8_t, int32_t, int16_t, int16_t>);
-  setHook("BlockNeighbourReplace", new Hook9<bool, const char*, int32_t, int8_t, int32_t, int32_t, int8_t, int32_t, int16_t, int16_t>);
+  setHook("PlayerDiggingStarted", new Hook5<bool, const char*, int32_t, int16_t, int32_t, int8_t>);
+  setHook("PlayerDigging", new Hook5<bool, const char*, int32_t, int16_t, int32_t, int8_t>);
+  setHook("PlayerDiggingStopped", new Hook5<bool, const char*, int32_t, int16_t, int32_t, int8_t>);
+  setHook("PlayerBlockInteract", new Hook4<bool, const char*, int32_t, int16_t, int32_t>);
+  setHook("BlockBreakPre", new Hook4<bool, const char*, int32_t, int16_t, int32_t>);
+  setHook("BlockBreakPost", new Hook4<bool, const char*, int32_t, int16_t, int32_t>);
+  setHook("BlockNeighbourBreak", new Hook7<bool, const char*, int32_t, int16_t, int32_t, int32_t, int8_t, int32_t>);
+  setHook("BlockPlacePre", new Hook6<bool, const char*, int32_t, int16_t, int32_t, int16_t, int8_t>);
+  setHook("ItemRightClickPre", new Hook6<bool, const char*, int32_t, int16_t, int32_t, int16_t, int8_t>);
+  setHook("BlockPlacePost", new Hook6<bool, const char*, int32_t, int16_t, int32_t, int16_t, int8_t>);
+  setHook("BlockNeighbourPlace", new Hook7<bool, const char*, int32_t, int16_t, int32_t, int32_t, int8_t, int32_t>);
+  setHook("BlockReplacePre", new Hook6<bool, const char*, int32_t, int16_t, int32_t, int16_t, int16_t>);
+  setHook("BlockReplacePost", new Hook6<bool, const char*, int32_t, int16_t, int32_t, int16_t, int16_t>);
+  setHook("BlockNeighbourReplace", new Hook9<bool, const char*, int32_t, int16_t, int32_t, int32_t, int8_t, int32_t, int16_t, int16_t>);
   setHook("LogPost", new Hook3<bool, int, const char*, const char*>);
   setHook("PlayerChatCommand", new Hook4<bool, const char*, const char*, int, const char**>);
   setHook("PlayerRespawn", new Hook1<bool, const char*>);
   setHook("gotAttacked", new Hook2<bool, const char*, int32_t>);
+  setHook("interact", new Hook2<bool, const char*, int32_t>);
+  */
 
   init();
 }
@@ -111,11 +117,12 @@ Plugin::Plugin()
 // Remove existing hooks
 Plugin::~Plugin()
 {
+  
   for (HookMap::iterator it = m_hooks.begin(); it != m_hooks.end(); ++it)
   {
     delete it->second;
   }
-
+  
   m_hooks.clear();
 }
 
@@ -123,6 +130,7 @@ void Plugin::init()
 {
   // Create Block objects
   m_block_CBs.push_back(BlockBasicPtr(new BlockRedstone));
+  m_block_CBs.push_back(BlockBasicPtr(new BlockRedstoneUtil));
   m_block_CBs.push_back(BlockBasicPtr(new BlockWood));
   m_block_CBs.push_back(BlockBasicPtr(new BlockFalling));
   m_block_CBs.push_back(BlockBasicPtr(new BlockTorch));
@@ -221,7 +229,7 @@ bool Plugin::loadPlugin(const std::string& name, const std::string& path, std::s
   return true;
 }
 
-void Plugin::unloadPlugin(const std::string name)
+void Plugin::unloadPlugin(const std::string& name)
 {
   LIBRARY_HANDLE lhandle = NULL;
   pfv fhandle = NULL;

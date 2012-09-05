@@ -25,44 +25,44 @@
   SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "../mineserver.h"
-#include "../map.h"
+#include "mineserver.h"
+#include "map.h"
 
 #include "fire.h"
 
 
-void BlockFire::onStartedDigging(User* user, int8_t status, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+void BlockFire::onStartedDigging(User* user, int8_t status, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
 
 }
 
-void BlockFire::onDigging(User* user, int8_t status, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+void BlockFire::onDigging(User* user, int8_t status, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
 
 }
 
-void BlockFire::onStoppedDigging(User* user, int8_t status, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+void BlockFire::onStoppedDigging(User* user, int8_t status, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
 
 }
 
-bool BlockFire::onBroken(User* user, int8_t status, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+bool BlockFire::onBroken(User* user, int8_t status, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
   return false;
 }
 
-void BlockFire::onNeighbourBroken(User* user, int16_t oldblock, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+void BlockFire::onNeighbourBroken(User* user, int16_t oldblock, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
-  Mineserver::get()->map(map)->setBlock(x, y, z, (char)BLOCK_AIR, 0);
-  Mineserver::get()->map(map)->sendBlockChange(x, y, z, (char)BLOCK_AIR, 0);
+  ServerInstance->map(map)->setBlock(x, y, z, (char)BLOCK_AIR, 0);
+  ServerInstance->map(map)->sendBlockChange(x, y, z, (char)BLOCK_AIR, 0);
 }
 
-bool BlockFire::onPlace(User* user, int16_t newblock, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+bool BlockFire::onPlace(User* user, int16_t newblock, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
   uint8_t oldblock;
   uint8_t oldmeta;
 
-  if (!Mineserver::get()->map(map)->getBlock(x, y, z, &oldblock, &oldmeta))
+  if (!ServerInstance->map(map)->getBlock(x, y, z, &oldblock, &oldmeta))
   {
     revertBlock(user, x, y, z, map);
     return true;
@@ -94,18 +94,18 @@ bool BlockFire::onPlace(User* user, int16_t newblock, int32_t x, int8_t y, int32
 
   direction = user->relativeToBlock(x, y, z);
 
-  Mineserver::get()->map(map)->setBlock(x, y, z, (char)BLOCK_FIRE, 0);
-  Mineserver::get()->map(map)->sendBlockChange(x, y, z, (char)BLOCK_FIRE, 0);
+  ServerInstance->map(map)->setBlock(x, y, z, (char)BLOCK_FIRE, 0);
+  ServerInstance->map(map)->sendBlockChange(x, y, z, (char)BLOCK_FIRE, 0);
   return false;
 }
 
-void BlockFire::onNeighbourPlace(User* user, int16_t newblock, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+void BlockFire::onNeighbourPlace(User* user, int16_t newblock, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
 }
 
-void BlockFire::onReplace(User* user, int16_t newblock, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+void BlockFire::onReplace(User* user, int16_t newblock, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
-  Mineserver::get()->map(map)->setBlock(x, y, z, BLOCK_AIR, 0);
-  Mineserver::get()->map(map)->sendBlockChange(x, y, z, BLOCK_AIR, 0);
+  ServerInstance->map(map)->setBlock(x, y, z, BLOCK_AIR, 0);
+  ServerInstance->map(map)->sendBlockChange(x, y, z, BLOCK_AIR, 0);
 }
 

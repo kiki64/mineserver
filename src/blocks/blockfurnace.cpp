@@ -25,18 +25,18 @@
   SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "../mineserver.h"
-#include "../map.h"
-#include "../tools.h"
+#include "mineserver.h"
+#include "map.h"
+#include "tools.h"
 
 #include "blockfurnace.h"
 
-bool BlockFurnace::onPlace(User* user, int16_t newblock, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+bool BlockFurnace::onPlace(User* user, int16_t newblock, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
   uint8_t oldblock;
   uint8_t oldmeta;
 
-  if (!Mineserver::get()->map(map)->getBlock(x, y, z, &oldblock, &oldmeta))
+  if (!ServerInstance->map(map)->getBlock(x, y, z, &oldblock, &oldmeta))
   {
     revertBlock(user, x, y, z, map);
     return true;
@@ -70,13 +70,31 @@ bool BlockFurnace::onPlace(User* user, int16_t newblock, int32_t x, int8_t y, in
 
   direction = user->relativeToBlock(x, y, z);
 
-  Mineserver::get()->map(map)->setBlock(x, y, z, (char)newblock, direction);
-  Mineserver::get()->map(map)->sendBlockChange(x, y, z, (char)newblock, direction);
+  // Fix orientation
+
+  //switch (direction)
+  //{
+  //case BLOCK_EAST:
+  //  direction = BLOCK_SOUTH;
+  //  break;
+  //case BLOCK_BOTTOM:
+  //  direction = BLOCK_EAST;
+  //  break;
+  //case BLOCK_NORTH:
+  //  direction = BLOCK_NORTH;
+  //  break;
+  //case BLOCK_SOUTH:
+  //  direction = BLOCK_BOTTOM;
+  //  break;
+  //}
+
+  ServerInstance->map(map)->setBlock(x, y, z, (char)newblock, direction);
+  ServerInstance->map(map)->sendBlockChange(x, y, z, (char)newblock, direction);
 
 
   int chunk_x = blockToChunk(x);
   int chunk_z = blockToChunk(z);
-  sChunk* chunk = Mineserver::get()->map(map)->loadMap(chunk_x, chunk_z);
+  sChunk* chunk = ServerInstance->map(map)->loadMap(chunk_x, chunk_z);
 
   if (chunk == NULL)
   {
@@ -98,19 +116,19 @@ bool BlockFurnace::onPlace(User* user, int16_t newblock, int32_t x, int8_t y, in
   return false;
 }
 
-bool BlockFurnace::onInteract(User* user, int32_t x, int8_t y, int32_t z, int map)
+bool BlockFurnace::onInteract(User* user, int32_t x, int16_t y, int32_t z, int map)
 {
-  Mineserver::get()->inventory()->windowOpen(user, WINDOW_FURNACE, x, y, z);
+  ServerInstance->inventory()->windowOpen(user, WINDOW_FURNACE, x, y, z);
   return true;
 }
 
 
-bool BlockFurnace::onBroken(User* user, int8_t status, int32_t x, int8_t y, int32_t z, int map,  int8_t direction)
+bool BlockFurnace::onBroken(User* user, int8_t status, int32_t x, int16_t y, int32_t z, int map,  int8_t direction)
 {
   uint8_t block;
   uint8_t meta;
 
-  if (!Mineserver::get()->map(map)->getBlock(x, y, z, &block, &meta))
+  if (!ServerInstance->map(map)->getBlock(x, y, z, &block, &meta))
   {
     return true;
   }
@@ -120,7 +138,7 @@ bool BlockFurnace::onBroken(User* user, int8_t status, int32_t x, int8_t y, int3
   int chunk_x = blockToChunk(x);
   int chunk_z = blockToChunk(z);
 
-  sChunk* chunk = Mineserver::get()->map(map)->loadMap(chunk_x, chunk_z);
+  sChunk* chunk = ServerInstance->map(map)->loadMap(chunk_x, chunk_z);
 
   if (chunk == NULL)
   {
@@ -138,8 +156,8 @@ bool BlockFurnace::onBroken(User* user, int8_t status, int32_t x, int8_t y, int3
     }
   }
 
-  Mineserver::get()->map(map)->sendBlockChange(x, y, z, BLOCK_AIR, 0);
-  Mineserver::get()->map(map)->setBlock(x, y, z, BLOCK_AIR, 0);
+  ServerInstance->map(map)->sendBlockChange(x, y, z, BLOCK_AIR, 0);
+  ServerInstance->map(map)->setBlock(x, y, z, BLOCK_AIR, 0);
   this->spawnBlockItem(x, y, z, map, block);
   return false;
 }

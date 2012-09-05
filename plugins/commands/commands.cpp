@@ -33,18 +33,29 @@
 #include <stdint.h>
 #include <cstdlib>
 #include <ctime>
-#include <algorithm>
 
 #include "tr1.h"
 #include TR1INCLUDE(unordered_map)
 #include TR1INCLUDE(memory)
 
 #define MINESERVER_C_API
-#include "../../src/plugin_api.h"
+#include "plugin_api.h"
 
 #include "commands.h"
 
 enum { PLANE,REPLACE };
+
+int _atoi(const std::string& str, bool* ok = 0){
+    if(ok){
+        *ok =true;
+        for(int i=0;i<str.size();i++)
+            if(str[i] < 48 || str[i] > 57){
+               *ok = false;
+                return 0;
+            }
+    }
+    return atoi(str.c_str());
+}
 
 #define PLUGIN_COMMANDS_VERSION 1.1
 const char CHATCMDPREFIX   = '/';
@@ -72,37 +83,6 @@ std::string dtos(double n)
   return result.str();
 }
 
-/**
- * C++ version 0.4 std::string style "itoa":
- * Contributions from Stuart Lowe, Ray-Yuan Sheu,
- * Rodrigo de Salvo Braz, Luc Gallant, John Maloney
- * and Brian Hunt
- */
-std::string itoa(int value, int base) {
-
-    std::string buf;
-
-    // check that the base if valid
-    if (base < 2 || base > 16) return buf;
-
-    enum { kMaxDigits = 35 };
-    buf.reserve( kMaxDigits ); // Pre-allocate enough space.
-
-    int quotient = value;
-
-    // Translating number to string with base:
-    do {
-        buf += "0123456789abcdef"[ std::abs( quotient % base ) ];
-        quotient /= base;
-    } while ( quotient );
-
-    // Append the negative sign
-    if ( value < 0) buf += '-';
-
-    std::reverse( buf.begin(), buf.end() );
-    return buf;
-}
-
 typedef void (*CommandCallback)(std::string nick, std::string, std::deque<std::string>);
 
 struct Command
@@ -116,7 +96,7 @@ struct Command
   std::deque<std::string> names;
   std::string arguments;
   std::string description;
-  CommandCallback callback;
+  CommandCallback callback;  
 };
 
 typedef std::tr1::shared_ptr<Command> ComPtr;
@@ -168,17 +148,17 @@ bool isValidItem(int id)
     return false;
   }
 
-  if (id > 109 && id < 256)  // these are undefined blocks and items
+  if (id > 136 && id < 256)  // these are undefined blocks and items
   {
     return false;
   }
 
-  if (id == 2256 || id == 2257)  // records are special cased
+  if (id >= 2256 && id <= 2266)  // records are special cased
   {
     return true;
   }
 
-  if (id > 368)  // high items are invalid
+  if (id > 388)  // high items are invalid
   {
     return false;
   }
@@ -284,7 +264,7 @@ void giveItemsSelf(std::string user, std::string command, std::deque<std::string
   }
 }
 
-void spawn(std::string user, std::string command, std::deque<std::string> args)
+void home(std::string user, std::string command, std::deque<std::string> args)
 {
   mineserver->chat.sendmsgTo(user.c_str(),"Teleported you home!");
   int x,y,z;
@@ -297,7 +277,7 @@ void setSpawn(std::string user, std::string command, std::deque<std::string> arg
   if(args.size() == 0) {
     double x,y,z;
     mineserver->user.getPosition(user.c_str(), &x,&y,&z,NULL,NULL,NULL);
-
+    
     mineserver->chat.sendmsgTo(user.c_str(),"Set spawn!");
     mineserver->map.setSpawn(x,y,z);
     mineserver->user.teleport(user.c_str(),x, y + 2, z);
@@ -306,17 +286,12 @@ void setSpawn(std::string user, std::string command, std::deque<std::string> arg
 
 void userWorld(std::string user, std::string command, std::deque<std::string> args)
 {
-  if(args.size() == 0)
+  if(args.size() == 1)
   {
-    //TODO: Find some way to display world names for user
-    std::string temp = "Worlds: ";
-    mineserver->chat.sendmsgTo(user.c_str(), temp.c_str());
-  }
-  else if(args.size() == 1)
-  {
-    //TODO: if arg is a string we need to look up its number and use that.
-
-    mineserver->user.teleportMap(user.c_str(), atoi(args[0].c_str()));
+     double x,y,z;
+     mineserver->user.getPosition(user.c_str(), &x,&y,&z,NULL,NULL,NULL);
+     mineserver->logger.log(LOG_INFO, "plugin.commands", (user + args[0]).c_str());
+     mineserver->user.teleportMap(user.c_str(), x,y+2,z,atoi(args[0].c_str()));
   }
 
 }
@@ -588,12 +563,9 @@ void setTime(std::string user, std::string command, std::deque<std::string> args
       timeValue = "18000";
     }
 
-    User* temp = mineserver->user.getUserString(user);
+    mineserver->map.setTime(atoi(timeValue.c_str()));
 
-    mineserver->map.setTime(atoi(timeValue.c_str()), temp->pos.map);
-
-    std::string tempStr = "World time changed in: " + temp->pos.map;
-    mineserver->chat.sendmsgTo(user.c_str(),tempStr.c_str());
+    mineserver->chat.sendmsgTo(user.c_str(),"World time changed.");
   }
   else
   {
@@ -603,9 +575,7 @@ void setTime(std::string user, std::string command, std::deque<std::string> args
 
 void getTime(std::string user, std::string command, std::deque<std::string> args)
 {
-  User* temp = mineserver->user.getUserString(user);
-
-  std::string msg = "The current server time is " + dtos(mineserver->map.getTime(temp->pos.map));
+  std::string msg = "The current server time is " + dtos(mineserver->map.getTime());
   mineserver->chat.sendmsgTo(user.c_str(), msg.c_str());
 }
 
@@ -615,10 +585,10 @@ bool translateDirection(int32_t *x, int8_t *y, int32_t *z, int8_t direction)
     {
       case BLOCK_BOTTOM: (*y)--;  break;
       case BLOCK_TOP:    (*y)++;  break;
-      case BLOCK_NORTH:  (*z)--;  break;
-      case BLOCK_SOUTH:  (*z)++;  break;
-      case BLOCK_EAST:   (*x)++;  break;
-      case BLOCK_WEST:   (*x)--;  break;
+      case BLOCK_NORTH:  (*x)++;  break;
+      case BLOCK_SOUTH:  (*x)--;  break;
+      case BLOCK_EAST:   (*z)++;  break;
+      case BLOCK_WEST:   (*z)--;  break;
       default:                    break;
     }
   return true;
@@ -670,9 +640,9 @@ bool startedDiggingFunction(const char* userIn, int32_t x,int8_t y,int32_t z,int
           for(int xpos = xstart; xpos <= xend; xpos ++)
           {
             for(int zpos = zstart;  zpos <= zend; zpos ++)
-            {
+            {     
               for(int ypos = ystart;  ypos <= yend; ypos ++)
-              {
+              {  
                 if(mineserver->map.getBlock(xpos,ypos,zpos,&block,&meta) && block == cuboidMap[user].fromBlock)
                 {
                   mineserver->map.setBlock(xpos,ypos,zpos,cuboidMap[user].toBlock,map);
@@ -682,7 +652,7 @@ bool startedDiggingFunction(const char* userIn, int32_t x,int8_t y,int32_t z,int
           }
           mineserver->chat.sendmsgTo(user.c_str(),"Replace done");
           cuboidMap.erase(user);
-        }
+        }        
       }
     }
   }
@@ -691,7 +661,7 @@ bool startedDiggingFunction(const char* userIn, int32_t x,int8_t y,int32_t z,int
 }
 
 bool blockPlacePreFunction(const char* userIn, int32_t x,int8_t y,int32_t z,int16_t block,int8_t direction)
-{
+{  
   translateDirection(&x,&y,&z,direction);
   std::string user(userIn);
   if(cuboidMap.find(user) != cuboidMap.end())
@@ -732,7 +702,7 @@ bool blockPlacePreFunction(const char* userIn, int32_t x,int8_t y,int32_t z,int1
 			  for(int xpos = xstart; xpos <= xend; xpos ++)
 			  {
 			    for(int zpos = zstart;  zpos <= zend; zpos ++)
-			    {
+			    {                
 				  for(int ypos = ystart;  ypos <= yend; ypos ++)
 				  {
 				    mineserver->map.setBlock(xpos,ypos,zpos,block,0);
@@ -754,7 +724,7 @@ void doNotDisturb(std::string user, std::string command, std::deque<std::string>
   mineserver->user.toggleDND(user.c_str());
 }
 
-void gps(std::string user, std::string command, std::deque<std::string> args)
+void gps(std::string user, std::string command, std::deque<std::string> args) 
 {
   double x,y,z,stance;
   float yaw,pitch;
@@ -768,16 +738,16 @@ void banUser(std::string user, std::string command, std::deque<std::string> args
   return;
 }
 
-void unbanUser(std::string user, std::string command, std::deque<std::string> args)
+void unbanUser(std::string user, std::string command, std::deque<std::string> args) 
 {
   return;
 }
 
-void sendRules(std::string user, std::string command, std::deque<std::string> args)
+void sendRules(std::string user, std::string command, std::deque<std::string> args) 
 {
   std::string line;
   std::ifstream rules("rules.txt");
-
+  
   if(rules.is_open()) {
     while(rules.good()) {
       std::getline(rules, line);
@@ -789,82 +759,31 @@ void sendRules(std::string user, std::string command, std::deque<std::string> ar
 }
 void about(std::string user, std::string command, std::deque<std::string> args)
 {
-  //TODO: get version of mineserver
   std::ostringstream msg;
   if (mineserver->config.bData("system.show_version"))
   {
-    msg  << "§9" << mineserver->config.sData("system.server_name") << " Running Mineserver v. ???";
+    msg  << "§9" << mineserver->config.sData("system.server_name") << " Running Mineserver v." << VERSION_SIMPLE;
     mineserver->chat.sendmsgTo(user.c_str(), msg.str().c_str());
   }
 }
 
 void sendHelp(std::string user, std::string command, std::deque<std::string> args)
 {
+  // TODO: Add paging support, since not all commands will fit into
+  // the screen at once.
+
   CommandList* commandList = &m_Commands; // defaults
-  std::string commandColor = MC_COLOR_BLUE;
-  const uint8_t commandsPerPage = 9; // 10 will fit nicely, -1 for the help title menu
-  const uint8_t maxLineLength = 62; // Makes one command per line with longer lines cut and we add ...
-  const uint8_t numPages = (commandList->size() + commandsPerPage - 1) / commandsPerPage;
-  std::string buffer = itoa(numPages, 10);
-  std::string buffer2;
+  //std::string commandColor = MC_COLOR_BLUE;
 
-  if (args.size() == 0 || atoi(args.front().c_str()) != 0 )
+  if (args.size() == 0)
   {
-    if( args.size() != 0 && atoi(args.front().c_str()) != 0 && (atoi(args.front().c_str()) > numPages || atoi(args.front().c_str()) < 1 ))
+    for(CommandList::iterator it = commandList->begin();it != commandList->end();++it)
     {
-      std::string msg = MC_COLOR_RED + "Invalid Help Page Number (1-" + buffer + ")";
+      std::string args = it->second->arguments;
+      std::string description = it->second->description;
+      std::string msg = /*commandColor +*/ CHATCMDPREFIX + it->first + " " + args + " : " /*+ MC_COLOR_YELLOW*/ + description;
       mineserver->chat.sendmsgTo(user.c_str(), msg.c_str());
     }
-    else
-    {
-      uint8_t currentPage = 1;
-      if( args.size() != 0 && atoi(args.front().c_str()) != 0 )
-      {
-        currentPage = atoi(args.front().c_str());
-      }
-      buffer2 = itoa(currentPage,  10);
-
-      //Help Menu Title
-      std::string msg = MC_COLOR_YELLOW + "------ Help Menu ------ Page " + buffer2 + " of " + buffer + " ------";
-      mineserver->chat.sendmsgTo(user.c_str(), msg.c_str());
-
-      //List Commands
-      uint16_t count = 1;
-      for(CommandList::iterator it = commandList->begin(); it != commandList->end(); ++it)
-      {
-
-        if( count > commandsPerPage * (currentPage - 1) && count <= commandsPerPage * currentPage)
-        {
-          std::string args = it->second->arguments;
-          std::string description = it->second->description;
-          std::string msg = commandColor + CHATCMDPREFIX + it->first;
-          if( args.compare("") == 0 )
-          {
-            msg.append(": " + description);
-          }
-          else
-          {
-            msg.append(" " + args + ": " + description);
-          }
-
-          if( msg.length() > maxLineLength )
-          {
-            msg = msg.substr(0, maxLineLength);
-            msg.append("...");
-          }
-
-          mineserver->chat.sendmsgTo(user.c_str(), msg.c_str());
-        }
-
-        if( count >= commandsPerPage * currentPage )
-        {
-          break;
-        }
-
-        count++;
-      }
-    }
-
   }
   else
   {
@@ -873,7 +792,7 @@ void sendHelp(std::string user, std::string command, std::deque<std::string> arg
     {
       std::string args = iter->second->arguments;
       std::string description = iter->second->description;
-      std::string msg = commandColor + CHATCMDPREFIX + iter->first + " " + args;
+      std::string msg = /*commandColor +*/ CHATCMDPREFIX + iter->first + " " + args;
       mineserver->chat.sendmsgTo(user.c_str(), msg.c_str());
       msg = /*MC_COLOR_YELLOW + */CHATCMDPREFIX + description;
       mineserver->chat.sendmsgTo(user.c_str(), msg.c_str());
@@ -901,179 +820,35 @@ void sendMOTD(std::string user, std::string command, std::deque<std::string> arg
     MOTDFile.close();
   }
 }
+void changeGameMode(std::string user, std::string command, std::deque<std::string> args){
+    std::string changeUser;
+    if(args.size() == 2){
+        changeUser = args[0];
+        args.erase(args.begin());
+    }
+    else changeUser = user;
 
+    if(args.size() == 1){
+        bool ok;
+        int i = _atoi(args[0], &ok);
 
-std::string *explode (std::string original, std::string exploder=".") {
-  std::string tmp;
-  tmp=original;
-  int num, loc;
-  num=1;
-  while (tmp.find(exploder)!=std::string::npos) 
-  {
-    loc=tmp.find(exploder);
-    tmp=tmp.substr(loc+exploder.length());
-    num++;
-  }
-  std::string *result;
-  result = new std::string[num];
-  num=0;
-  tmp=original;
-  while (tmp.find(exploder)!=std::string::npos)
-  {
-     loc=tmp.find(exploder);
-     result[num]=tmp.substr(0,loc);
-     tmp=tmp.substr(loc+exploder.length());
-     num++;
-  }
-  result[num]=tmp;
-  return result;
-}
-
-void warp(std::string user, std::string command, std::deque<std::string> args) 
-{
-  bool foundWarp = false;
-  std::string warps;
-  std::string line;
-  std::ifstream WARPFILE("warp.txt");
-  if (WARPFILE.is_open())
-  {
-    while (WARPFILE.good() )
-	  {
-	    std::getline(WARPFILE, line);
-	    std::string *warppoint = explode(line, ",");
-	    if(args.size() == 0)
-      {
-        std::string str_warppoint = warppoint[0];
-        if(str_warppoint.length() > 0 )
-        {
-          warps += str_warppoint;
-          warps += ", ";
+        if(!ok){
+            if(args[0] == "survival") i=0;
+            else if(args[0] == "creative") i=1;
+            else goto printhelp;
         }
-      }
-      else if(warppoint[0] == args[0])
-      {
-        foundWarp = true;
-        std::string output = "Warping to " + args[0];
-        mineserver->chat.sendmsgTo(user.c_str(), output.c_str() );
-        mineserver->user.teleport(user.c_str(), atof(warppoint[1].data()), atof(warppoint[2].data()), atof(warppoint[3].data())/*world: , warppoint[4].data()*/); 
-      } 
-	  }
-    
-    if(args.size() == 0)
-    {
-      if( warps.length() == 0 )
-      {
-        mineserver->chat.sendmsgTo(user.c_str(), "There are no warps created." );
-      }
-      else
-      {
-        warps = warps.substr( 0, warps.length() - 2 ); // remove trailing ,
-        mineserver->chat.sendmsgTo(user.c_str(), warps.c_str() );
-      }
-    }
-    else
-    {
-      if( !foundWarp )
-      {
-        std::string output = "Warp " + args[0] + " not found.";
-        mineserver->chat.sendmsgTo(user.c_str(), output.c_str() );
-      }
+
+        if(i != 0 && i != 1) goto printhelp;
+
+        mineserver->user.setGameMode(user.c_str(), i);
+        std::string info = user + " set " + changeUser
+                + "'s gamemode to " + ( i ? "creative" : "survival") + ".";
+        mineserver->logger.log(LOG_INFO, "plugin.commands", info.c_str());
+        return;
     }
 
-    WARPFILE.close();
-  }
-  else
-  {
-    mineserver->chat.sendmsgTo(user.c_str(), "No Warp Entries");
-  }
-}
-
-std::string delwarp(std::string warp, bool &find_it)
-{
-  find_it = false;
-  std::string warps="";
-  std::string line;
-  std::ifstream iWarp("warp.txt");
-  if (iWarp.is_open())
-  {
-      bool first = true;
-      while (iWarp.good() )
-      {
-        std::getline(iWarp, line);
-        std::string *warppoint = explode(line, ",");
-        //Copy only the other warppoints
-        if(warppoint[0] != warp)
-        {
-          if(first)
-          {
-            warps += line;
-            first = false; 
-          }
-          else
-          {
-            warps += "\n" + line;
-          }
-        }
-        else
-        {
-          find_it = true;
-        }
-      }
-      iWarp.close();
-  }
-
-  return warps;
-}
-
-void setwarp(std::string user, std::string command, std::deque<std::string> args)
-{
-  if(args.size() == 1) 
-  {
-    double x,y,z;
-    float w;
-    mineserver->user.getPosition(user.c_str(), &x,&y,&z, NULL,NULL,NULL);
-    
-    bool found;
-    //try to del same entries
-    std::string warps = delwarp(args[0], found); 
-    //write data
-    std::ofstream oWarp("warp.txt");
-    if(oWarp.is_open())
-    {
-      oWarp << warps << args[0] << "," << x << "," << y+2 << "," << z << "\n";
-      std::string output = "Warp '" + args[0] + "' created";
-      mineserver->chat.sendmsgTo(user.c_str(), output.c_str());
-      oWarp.close();
-    }
-  }
-}
-    
-void delwarp(std::string user, std::string command, std::deque<std::string> args)
-{
-  if(args.size() == 1)
-  {
-    bool found;
-    //delete warp
-    std::string warps = delwarp(args[0], found);
-
-    if( found )
-    {
-      //write data
-      std::ofstream oWarp("warp.txt");
-      if(oWarp.is_open())
-      {
-        oWarp << warps;
-        std::string output = "Warp '" + args[0] + "' deleted.";
-        mineserver->chat.sendmsgTo(user.c_str(), output.c_str());
-        oWarp.close();
-      }
-    }
-    else
-    {
-      std::string output = "Warp '" + args[0] + "' not found.";
-      mineserver->chat.sendmsgTo(user.c_str(), output.c_str());
-    }
-  }
+    printhelp:
+    mineserver->chat.sendmsgTo(user.c_str(), "usage: /gamemode [player] < survival | 0 ; creative | 1 > " ) ;
 }
 
 std::string pluginName = "commands";
@@ -1099,16 +874,16 @@ PLUGIN_API_EXPORT void CALLCONVERSION commands_init(mineserver_pointer_struct* m
   mineserver->plugin.addCallback("PlayerDiggingStarted", reinterpret_cast<voidF>(startedDiggingFunction));
 
   registerCommand(ComPtr(new Command(parseCmd("about"), "", "Displays server name and software version", about)));
-  registerCommand(ComPtr(new Command(parseCmd("ctp"), "<x> <y> <z>", "Teleport to coordinates (/ctp 100 100 100)", coordinateTeleport)));
-  registerCommand(ComPtr(new Command(parseCmd("cuboid"), "", "Place two blocks, it will fill the space between them", cuboid)));
+  registerCommand(ComPtr(new Command(parseCmd("ctp"), "<x> <y> <z>", "Teleport to coordinates (eg. /ctp 100 100 100)", coordinateTeleport)));
+  registerCommand(ComPtr(new Command(parseCmd("cuboid"), "", "Type in the command and place two blocks, it will fill the space between them", cuboid)));
   registerCommand(ComPtr(new Command(parseCmd("dnd"), "", "Toggles Do Not Disturb mode", doNotDisturb)));
   registerCommand(ComPtr(new Command(parseCmd("flattenchunk"), "<id/alias>", "Erases all blocks above you and changes all blocks at your Y-level to your block of choice", flattenchunk)));
   registerCommand(ComPtr(new Command(parseCmd("gettime"), "", "Gets the world time", getTime)));
   registerCommand(ComPtr(new Command(parseCmd("give"), "<player> <id/alias> [count]", "Gives <player> [count] pieces of <id/alias>. By default [count] = 1", giveItems)));
   registerCommand(ComPtr(new Command(parseCmd("gps"), "", "Display current coordinates", gps)));
-  registerCommand(ComPtr(new Command(parseCmd("help"), "[<command>] [<page>]", "Display this help message.", sendHelp)));
-  registerCommand(ComPtr(new Command(parseCmd("spawn"), "", "Teleports you to this world's spawn location", spawn)));
-  registerCommand(ComPtr(new Command(parseCmd("igive i"), "<id/alias> [count]", "Gives self [count] pieces of <id/alias>. By default [count] = 1", giveItemsSelf)));
+  registerCommand(ComPtr(new Command(parseCmd("help"), "[<commandName>]", "Display this help message.", sendHelp)));
+  registerCommand(ComPtr(new Command(parseCmd("home"), "", "Teleports you to this world's spawn location", home)));
+  registerCommand(ComPtr(new Command(parseCmd("igive i item"), "<id/alias> [count]", "Gives self [count] pieces of <id/alias>. By default [count] = 1", giveItemsSelf)));
   registerCommand(ComPtr(new Command(parseCmd("motd"), "", "Displays the server's MOTD", sendMOTD)));
   registerCommand(ComPtr(new Command(parseCmd("players who names list"), "", "Lists online players", playerList)));
   registerCommand(ComPtr(new Command(parseCmd("replace"), "<from-id/alias> <to-id/alias>", "Type in the command and left-click two blocks, it will replace the selected blocks with the new blocks", replace)));
@@ -1116,12 +891,10 @@ PLUGIN_API_EXPORT void CALLCONVERSION commands_init(mineserver_pointer_struct* m
   registerCommand(ComPtr(new Command(parseCmd("rules"), "", "Displays server rules", sendRules)));
   registerCommand(ComPtr(new Command(parseCmd("save"), "", "Manually saves map to disc", saveMap)));
   registerCommand(ComPtr(new Command(parseCmd("setspawn"), "", "Sets home to your current coordinates", setSpawn)));
-  registerCommand(ComPtr(new Command(parseCmd("time settime"), "<time>", "Sets the world time. (<time> = 0-24000, 0 & 24000 = day, ~15000 = night)", setTime)));
+  registerCommand(ComPtr(new Command(parseCmd("settime"), "<time>", "Sets the world time. (<time> = 0-24000, 0 & 24000 = day, ~15000 = night)", setTime)));
   registerCommand(ComPtr(new Command(parseCmd("tp"), "<player> [<anotherPlayer>]", "Teleport yourself to <player>'s position or <player> to <anotherPlayer>", userTeleport)));
   registerCommand(ComPtr(new Command(parseCmd("world"), "<world-id>", "Moves you between worlds", userWorld)));
-  registerCommand(ComPtr(new Command(parseCmd("warp"), "<warppoint>", "Teleport to warp", warp)));
-  registerCommand(ComPtr(new Command(parseCmd("setwarp"), "<warppoint>", "Set a warp", setwarp)));
-  registerCommand(ComPtr(new Command(parseCmd("delwarp"), "<warppoint>", "Del a warp", delwarp)));
+  registerCommand(ComPtr(new Command(parseCmd("gamemode"), "[player] < survival | 0 ; creative | 1 >", "Changes your or someone else's gamemode.", changeGameMode)));
 }
 
 PLUGIN_API_EXPORT void CALLCONVERSION commands_shutdown(void)

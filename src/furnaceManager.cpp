@@ -26,6 +26,7 @@
  */
 
 #include <iostream>
+#include <algorithm>
 
 #include "furnaceManager.h"
 #include "furnace.h"
@@ -83,7 +84,7 @@ void FurnaceManager::update()
 
 void removeFurnace(furnaceDataPtr data)
 {
-  Mineserver::get()->furnaceManager()->removeFurnace(data);
+  ServerInstance->furnaceManager()->removeFurnace(data);
 }
 
 struct FurnaceDataFinder

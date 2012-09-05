@@ -42,7 +42,8 @@
 
 
 #define MINESERVER_C_API
-#include "../../src/plugin_api.h"
+#include "plugin_api.h"
+#include "tools.h"
 
 #include "passiveMobs.h"
 
@@ -210,8 +211,9 @@ void timer200Function()
   {
     double x,y,z;
     int w;
-    mineserver->mob.getMobPositionW(MyMobs[i]->ID,&x,&y,&z,&w);
-
+    // get position and world
+    mineserver->mob.getMobPositionW(MyMobs[i]->ID, &x, &y, &z, &w);
+    // kill dead mobs
     if(mineserver->mob.getHealth(MyMobs[i]->ID) == 0)
     {
       if (MyMobs[i]->deSpawn < 12)
@@ -230,7 +232,9 @@ void timer200Function()
     {
       MyMobs[i]->deSpawn=0;
     }
+    // get the nearest user
     int nearest = 10000;
+    double nearest_x = .0, nearest_y = .0, nearest_z = .0;
     for (int j = 0; j < mineserver->user.getCount(); j++)
     {
       const char * const name = mineserver->user.getUserNumbered(j);
@@ -240,45 +244,57 @@ void timer200Function()
 
       if (w != pmap) { continue; }
       int distance = abs(int(px-x)) + abs(int(py-y)) + abs(int(pz-z));
-      if(distance < nearest) { nearest = distance; }
+      if(distance < nearest) {
+        nearest = distance;
+        nearest_x = px;
+        nearest_y = py;
+        nearest_z = pz;
+      }
     }
     if(nearest < 0 || nearest > 200)
     {
+      // if there is no user here, despawn the mob
       mineserver->mob.despawnMob(MyMobs[i]->ID);
       MyMobs.erase(MyMobs.begin()+i);
       continue;
     }
-    int action = rand()%100;
-    double yaw, pitch;
+    // do something, my little mob
+    int action = rand() % 150;
+    double yaw, pitch, head_yaw;
     float forward = 0;
-    mineserver->mob.getLook(MyMobs[i]->ID, &yaw, &pitch);
+    mineserver->mob.getLook(MyMobs[i]->ID, &yaw, &pitch, &head_yaw);
     if (action < 5)
     {
       yaw += 30;
     }
-    else if (action <10)
+    else if (action < 10)
     {
       yaw += 15;
-      while (yaw >= 360){ yaw-=360; }
       forward = 0.3;
     }
-    else if (action <15)
+    else if (action < 15)
     {
       yaw -= 30;
     }
-    else if (action <20)
+    else if (action < 20)
     {
       yaw -= 15;
-      while(yaw <= 0) { yaw += 360; }
       forward = 0.3;
     }
     else if (action < 30)
     {
-      forward =+ 0.6;
+      forward = 0.6;
+    }
+    else if (action < 40)
+    {
+      // for now, just look around stupidly
+      head_yaw += rand() % 40;
     }
     else if (action < 50)
     {
-      forward =- 0.6;;
+      forward = -0.6;
+      // turn around!
+      yaw -= 180;
     }
     MyMobs[i]->velocity += forward;
     if (MyMobs[i]->velocity > 2.0){ MyMobs[i]->velocity = 2.0; }
@@ -287,6 +303,12 @@ void timer200Function()
 
     if (yaw <= 0) { yaw += 360; }
     if (yaw >= 360) { yaw -= 360; }
+
+    // TODO: make it look at the player if he's near enough.
+    // (nearest_x, nearest_y, nearest_z).
+/*    if(nearest_z != z) {
+      head_yaw = RADIANS_TO_DEGREES(tan((nearest_x - x) / (nearest_z - z)));
+    }*/
 
     if (forward>0.1 && rand()%6 == 3)
     {
@@ -300,7 +322,7 @@ void timer200Function()
         mineserver->mob.moveMobW(MyMobs[i]->ID,x,y,z,w);
       }
     }
-    mineserver->mob.setLook(MyMobs[i]->ID, yaw, pitch);
+    mineserver->mob.setLook(MyMobs[i]->ID, yaw, pitch, head_yaw);
 
   }
 }
@@ -343,22 +365,6 @@ void gotAttacked(const char* userIn,int mobID)
 
   if (mobHealth <= 0) return;
 
-  int type = mineserver->mob.getType(mobID);
-  double x, y, z; int w;
-  mineserver->mob.getMobPositionW(mobID, &x, &y, &z, &w);
-  if (type == MOB_SHEEP)
-  {
-    int8_t meta = mineserver->mob.getByteMetadata(mobID, 16);
-    if (!(meta & 0x10))
-    {
-      mineserver->map.createPickupSpawn((int)floor(x),(int)floor(y),(int)floor(z),
-                                        BLOCK_WOOL, 1, meta, NULL);
-      meta |= 0x10;
-      mineserver->mob.setByteMetadata(mobID, 16, meta);
-      mineserver->mob.updateMetadata(mobID);
-    }
-  }
-
   mobHealth -= defaultDamage(atk_item);
 
   if (mobHealth <= 0)
@@ -368,6 +374,44 @@ void gotAttacked(const char* userIn,int mobID)
   mineserver->mob.setHealth((int)mobID, (int)mobHealth);
 }
 
+void interact(const char* userIn,int mobID)
+{
+  // Certain mobs drop something when the user interacts with them.
+  // Sheep drop wool.
+  std::string user(userIn);
+  int atk_item, _meta, _quant;
+  mineserver->user.getItemInHand(userIn, &atk_item, &_meta, &_quant);
+  int mobHealth = mineserver->mob.getHealth((int)mobID);
+
+  if (mobHealth <= 0) return;
+
+  int type = mineserver->mob.getType(mobID);
+  double x, y, z; int w;
+  mineserver->mob.getMobPositionW(mobID, &x, &y, &z, &w);
+  if (type == MOB_SHEEP)
+  {
+    // On unsheared sheeps, use a shear to obtain 1-3 wool blocks.
+    int8_t meta = mineserver->mob.getByteMetadata(mobID, 16);
+    if (atk_item == ITEM_SHEARS && !(meta & 0x10))
+    {
+      size_t amount = rand() % 3 + 1;
+      mineserver->map.createPickupSpawn((int)floor(x),(int)floor(y),(int)floor(z),
+                                        BLOCK_WOOL, amount, meta, NULL);
+      meta |= 0x10;
+      mineserver->mob.setByteMetadata(mobID, 16, meta);
+      mineserver->mob.updateMetadata(mobID);
+    }
+  } else if(type == MOB_COW)
+  {
+    if(atk_item == ITEM_BUCKET)
+    {
+      // give him milk, take the bucket!
+      _quant--;
+      mineserver->user.setItemInHand(userIn, atk_item, _meta, _quant);
+      mineserver->user.addItem(userIn, ITEM_MILK_BUCKET, 1, 0);
+    }
+  }
+}
 
 std::string pluginName = "passiveMobs";
 
@@ -392,6 +436,7 @@ PLUGIN_API_EXPORT void CALLCONVERSION passiveMobs_init(mineserver_pointer_struct
   }
   mineserver->plugin.addCallback("Timer200", reinterpret_cast<voidF>(timer200Function));
   mineserver->plugin.addCallback("gotAttacked", reinterpret_cast<voidF>(gotAttacked));
+  mineserver->plugin.addCallback("interact", reinterpret_cast<voidF>(interact));
 }
 
 PLUGIN_API_EXPORT void CALLCONVERSION passiveMobs_shutdown(void)

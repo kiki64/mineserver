@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2011, The Mineserver Project
+   Copyright (c) 2012, The Mineserver Project
    All rights reserved.
 
   Redistribution and use in source and binary forms, with or without
@@ -38,9 +38,6 @@
 #include "tree.h"
 #include "furnaceManager.h"
 #include "mcregion.h"
-#include "protocol.h"
-#include "entityManager.h"
-#include "items/projectile.h"
 
 // Copy Construtor
 Map::Map(const Map& oldmap)
@@ -77,9 +74,9 @@ Map::Map()
 
   stopLight[0x00] = 0; // Empty
   stopLight[0x06] = 0; // Sapling
-  stopLight[0x08] = 3; // Water
-  stopLight[0x09] = 3; // Stationary water
-  stopLight[0x12] = 3; // Leaves
+  stopLight[0x08] = 2; // Water
+  stopLight[0x09] = 2; // Stationary water
+  stopLight[0x12] = 2; // Leaves
   stopLight[0x14] = 0; // Glass
   stopLight[0x25] = 0; // Yellow flower
   stopLight[0x26] = 0; // Red rose
@@ -98,7 +95,7 @@ Map::Map()
   stopLight[0x4b] = 0; // Redstone Torch (Off)
   stopLight[0x4C] = 0; // Redstone Torch (On)
   stopLight[0x4e] = 0; // Snow
-  stopLight[0x4f] = 3; // Ice
+  stopLight[0x4f] = 2; // Ice
   stopLight[0x55] = 0; // Fence
   stopLight[0x5A] = 0; // Portal
   stopLight[0x5B] = 0; // Jack-O-Lantern
@@ -219,7 +216,7 @@ void Map::init(int number)
 {
   m_number = number;
   const char* key = "map.storage.nbt.directories"; // Prefix for worlds config
-  std::list<std::string> tmp = Mineserver::get()->config()->mData(key)->keys();
+  std::list<std::string> tmp = ServerInstance->config()->mData(key)->keys();
 
   if (number < int(tmp.size()))
   {
@@ -228,7 +225,7 @@ void Map::init(int number)
     mapDirectory = *it;
   }
 
-  LOG2(INFO, "World " + mapDirectory);
+  LOG2(INFO, "Using world: " + mapDirectory);
 
   if (mapDirectory == "Not found!")
   {
@@ -262,7 +259,7 @@ void Map::init(int number)
     level["Data"]->Insert("SpawnY", new NBT_Value((int32_t)120));
     level["Data"]->Insert("SpawnZ", new NBT_Value((int32_t)0));
     level["Data"]->Insert("RandomSeed", new NBT_Value((int64_t)(rand() * 65535)));
-    level["Data"]->Insert("version", new NBT_Value((int32_t)19132));
+    level["Data"]->Insert("version", new NBT_Value((int32_t)19133));
     level["Data"]->Insert("LevelName", new NBT_Value(std::string("Mineserver world")));
 
     level.Insert("Trees", new NBT_Value(NBT_Value::TAG_LIST));
@@ -291,22 +288,23 @@ void Map::init(int number)
   //Check for McRegion format!
   int32_t version = (int32_t) * data["version"];
 
-  //Not in McRegion format?
-  if (version != 19132)
+  //Not in Anvil format?
+  if (version != 19133)
   {
-    LOG(EMERG, "Map", "Error: map not in McRegion format, converting..(old mapdata is not removed!)");
-    LOG(EMERG, "Map", "THIS MIGHT TAKE A WHILE");
-    LOG(EMERG, "Map", "every dot is converted subfolder and | is root level folder");
-
+    LOG(EMERG, "Map", "Error: map not in Anvil format, shutting down!");
+    
+    /*
     //Do the actual conversion
     convertMap(mapDirectory);
 
     //Add version info to tell we are using McRegion format and levelname
-    (*root)["Data"]->Insert("version", new NBT_Value((int32_t)19132));
+    (*root)["Data"]->Insert("version", new NBT_Value((int32_t)19133));
     (*root)["Data"]->Insert("LevelName", new NBT_Value(std::string("Mineserver world")));
 
     //Save level.dat back with the new info
     root->SaveToFile(infile);
+    */
+    exit(EXIT_FAILURE);
   }
 
   /////////////
@@ -340,7 +338,8 @@ void Map::init(int number)
   /////////////////
 
   // Init mapgenerator
-  Mineserver::get()->mapGen(m_number)->re_init((int32_t)mapSeed);
+  Mineserver* _ServerInstance = ServerInstance;
+  _ServerInstance->mapGen(m_number)->re_init((int32_t)mapSeed);
 
   delete root;
 }
@@ -437,13 +436,19 @@ bool Map::generateLight(int x, int z, sChunk* chunk)
   uint8_t* blocks     = chunk->blocks;
   uint8_t* skylight   = chunk->skylight;
   uint8_t* blocklight = chunk->blocklight;
-  uint8_t* heightmap  = chunk->heightmap;
+  int32_t* heightmap  = chunk->heightmap;
 
   int highest_y = 0;
 
   // Clear lightmaps
-  memset(skylight, 0, 16 * 16 * 128 / 2);
-  memset(blocklight, 0, 16 * 16 * 128 / 2);
+  memset(skylight, 0, 16 * 16 * 256 / 2);
+  memset(blocklight, 0, 16 * 16 * 256 / 2);
+
+  //Get neighboring chunks
+  sChunk* chunk_left   = getMapData(x-1, z, false);
+  sChunk* chunk_right  = getMapData(x+1, z, false);
+  sChunk* chunk_top    = getMapData(x, z+1, false);
+  sChunk* chunk_bottom = getMapData(x, z-1, false);
 
   // Sky light
   int light = 0;
@@ -454,14 +459,41 @@ bool Map::generateLight(int x, int z, sChunk* chunk)
     {
       light = 15;
       foundheight = false;
-      int32_t blockx_blockz = (block_z << 7) + (block_x << 11);
+      uint32_t blockx_blockz = block_x + (block_z << 4);
 
-      for (int block_y = 127; block_y > 0; block_y--)
+      for (int block_y = 255; block_y >= 0; block_y--)
       {
-        int index      = block_y + blockx_blockz;
+        int index      = blockx_blockz + (block_y << 8);
         int absolute_x = x * 16 + block_x;
         int absolute_z = z * 16 + block_z;
         uint8_t block    = blocks[index];
+
+        //Grab light from the neighbouring chunks if it's brighter there..
+        if(block_x == 0 && chunk_left != NULL)
+        {
+          uint8_t temp_blocklight, temp_skylight;
+          getLight(absolute_x-1, block_y, absolute_z, &temp_skylight, &temp_blocklight, chunk_left);          
+          if(temp_skylight-1 > light) light = temp_skylight-1;
+        }
+        else if(block_x == 15 && chunk_right != NULL)
+        {
+          uint8_t temp_blocklight, temp_skylight;
+          getLight(absolute_x+1, block_y, absolute_z, &temp_skylight, &temp_blocklight, chunk_right);
+          if(temp_skylight-1 > light) light = temp_skylight-1;
+        }
+
+        if(block_z == 0 && chunk_bottom != NULL)
+        {
+          uint8_t temp_blocklight, temp_skylight;
+          getLight(absolute_x, block_y, absolute_z-1, &temp_skylight, &temp_blocklight, chunk_bottom);
+          if(temp_skylight-1 > light) light = temp_skylight-1;
+        }
+        else if(block_z == 15 && chunk_top != NULL)
+        {
+          uint8_t temp_blocklight, temp_skylight;
+          getLight(absolute_x, block_y, absolute_z+1, &temp_skylight, &temp_blocklight, chunk_top);
+          if(temp_skylight-1 > light) light = temp_skylight-1;
+        }
 
         light -= stopLight[block];
         if (light < 0)
@@ -472,7 +504,7 @@ bool Map::generateLight(int x, int z, sChunk* chunk)
         // Calculate heightmap while looping this
         if ((block != BLOCK_AIR) && (foundheight == false))
         {
-          heightmap[block_z + (block_x << 4)] = ((block_y == 127) ? block_y : block_y + 1);
+          heightmap[block_z + (block_x << 4)] = ((block_y == 255) ? block_y : block_y + 1);
           foundheight = true;
         }
 
@@ -492,22 +524,56 @@ bool Map::generateLight(int x, int z, sChunk* chunk)
   }
 
   // Block light
-  for (int block_x = 0; block_x < 16; block_x++)
+  for (int block_y = highest_y; block_y >= 0; block_y--)
   {
     for (int block_z = 0; block_z < 16; block_z++)
-    {
-      int32_t blockx_blockz = (block_z << 7) + (block_x << 11);
-      for (int block_y = highest_y; block_y >= 0; block_y--)
+    {      
+      uint32_t blocky_blockz = (block_z << 4) + (block_y << 8);
+
+      for (int block_x = 0; block_x < 16; block_x++)
       {
-        int index      = block_y + blockx_blockz;
+        int index      = block_y + blocky_blockz;
         int absolute_x = x * 16 + block_x;
         int absolute_z = z * 16 + block_z;
         uint8_t block    = blocks[index];
+        int8_t light = 0;
+
+        if(block_x == 0 && chunk_left != NULL)
+        {
+          uint8_t temp_blocklight, temp_skylight;
+          getLight(absolute_x-1, block_y, absolute_z, &temp_skylight, &temp_blocklight, chunk_left);          
+          light = temp_blocklight-1;
+        }
+        else if(block_x == 15 && chunk_right != NULL)
+        {
+          uint8_t temp_blocklight, temp_skylight;
+          getLight(absolute_x+1, block_y, absolute_z, &temp_skylight, &temp_blocklight, chunk_right);
+          light = temp_blocklight-1;
+        }
+
+        if(block_z == 0 && chunk_bottom != NULL)
+        {
+          uint8_t temp_blocklight, temp_skylight;
+          getLight(absolute_x, block_y, absolute_z-1, &temp_skylight, &temp_blocklight, chunk_bottom);
+          light = temp_blocklight-1;
+        }
+        else if(block_z == 15 && chunk_top != NULL)
+        {
+          uint8_t temp_blocklight, temp_skylight;
+          getLight(absolute_x, block_y, absolute_z+1, &temp_skylight, &temp_blocklight, chunk_top);
+          light = temp_blocklight-1;
+        }
+        light -= stopLight[block];
+        if (light < 0)
+        {
+          light = 0;
+        }
 
         // If light emitting block
-        if (emitLight[block] > 0)
+        if (emitLight[block] > 0 || light > 0)
         {
-          setLight(absolute_x, block_y, absolute_z, 0, emitLight[block], 2, chunk);
+          if(emitLight[block] > light) light = emitLight[block];
+          setLight(absolute_x, block_y, absolute_z, 0, light, 2, chunk);
         }
       }
     }
@@ -541,10 +607,10 @@ bool Map::generateLight(int x, int z, sChunk* chunk)
 #ifdef PRINT_LIGHTGEN_TIME
 #ifdef WIN32
   t_end = timeGetTime();
-  Mineserver::get()->logger()->log("Lightgen: " + dtos(t_end - t_begin) + "ms");
+  ServerInstance->logger()->log("Lightgen: " + dtos(t_end - t_begin) + "ms");
 #else
   t_end = clock();
-  Mineserver::get()->logger()->log("Lightgen: " + dtos((t_end - t_begin) / (CLOCKS_PER_SEC / 1000))) + "ms");
+  ServerInstance->logger()->log("Lightgen: " + dtos((t_end - t_begin) / (CLOCKS_PER_SEC / 1000))) + "ms");
 #endif
 #endif
 
@@ -554,7 +620,7 @@ bool Map::generateLight(int x, int z, sChunk* chunk)
 
 void Map::spreadLight(int x, int y, int z, int light_value, uint8_t type /* 0: sky, 1: block */)
 {
-  if ((y < 0) || (y > 127))
+  if ((y < 0) || (y > 255))
   {
     //LOGLF("Invalid y value (spreadLight)");
     // For sky style maps or maps with holes, this spams.
@@ -570,7 +636,7 @@ void Map::spreadLight(int x, int y, int z, int light_value, uint8_t type /* 0: s
   for (int direction = 0; direction < 6; direction++)
   {
     // Going too high
-    if ((y == 127) && (direction == 2))
+    if ((y == 255) && (direction == 2))
     {
       //Skip this direction
       direction++;
@@ -637,7 +703,7 @@ void Map::spreadLight(int x, int y, int z, int light_value, uint8_t type /* 0: s
 
 bool Map::getBlock(int x, int y, int z, uint8_t* type, uint8_t* meta, bool generate)
 {
-  if ((y < 0) || (y > 127))
+  if ((y < 0) || (y > 255))
   {
     std::ostringstream str;
     str << "Invalid y value (" << x << ", " << y << ", " << z << ")";
@@ -670,11 +736,11 @@ bool Map::getBlock(int x, int y, int z, uint8_t* type, uint8_t* meta, bool gener
 
   uint8_t* blocks      = chunk->blocks;
   uint8_t* metapointer = chunk->data;
-  int index            = y + (chunk_block_z << 7) + (chunk_block_x << 11);
+  int index            = chunk_block_x + (chunk_block_z << 4) + (y << 8);
   *type                = blocks[index];
   uint8_t metadata     = metapointer[(index) >> 1];
 
-  if (y & 1)
+  if (x & 1)
   {
     metadata  &= 0xf0;
     metadata >>= 4;
@@ -692,7 +758,7 @@ bool Map::getBlock(int x, int y, int z, uint8_t* type, uint8_t* meta, bool gener
 
 bool Map::getLight(int x, int y, int z, uint8_t* skylight, uint8_t* blocklight)
 {
-  if ((y < 0) || (y > 127))
+  if ((y < 0) || (y > 255))
   {
     LOGLF("Invalid y value (getLight)");
     return false;
@@ -721,11 +787,11 @@ bool Map::getLight(int x, int y, int z, uint8_t* skylight, uint8_t* blocklight, 
 
   uint8_t* blocklightPtr = chunk->blocklight;
   uint8_t* skylightPtr   = chunk->skylight;
-  int index            = y + (chunk_block_z << 7) + (chunk_block_x << 11);
+  int index            = chunk_block_x + (chunk_block_z << 4) + (y << 8);
   *blocklight = blocklightPtr[(index) >> 1];
   *skylight   = skylightPtr[(index) >> 1];
 
-  if (y % 2)
+  if (x % 2)
   {
     *blocklight  &= 0xf0;
     *blocklight >>= 4;
@@ -745,7 +811,7 @@ bool Map::getLight(int x, int y, int z, uint8_t* skylight, uint8_t* blocklight, 
 bool Map::setLight(int x, int y, int z, int skylight, int blocklight, int type)
 {
 
-  if ((y < 0) || (y > 127))
+  if ((y < 0) || (y > 255))
   {
     LOGLF("Invalid y value (setLight)");
     return false;
@@ -768,7 +834,7 @@ bool Map::setLight(int x, int y, int z, int skylight, int blocklight, int type)
 bool Map::setLight(int x, int y, int z, int skylight, int blocklight, int type, sChunk* chunk)
 {
   //Make sure we are inside boundaries
-  if ((y < 0) || (y > 127))
+  if ((y < 0) || (y > 255))
   {
     LOGLF("Invalid y value (setLight 2)");
     return false;
@@ -778,11 +844,11 @@ bool Map::setLight(int x, int y, int z, int skylight, int blocklight, int type, 
 
   uint8_t* blocklightPtr     = chunk->blocklight;
   uint8_t* skylightPtr       = chunk->skylight;
-  int index                = y + (chunk_block_z << 7) + (chunk_block_x << 11);
+  int index                = chunk_block_x + (chunk_block_z << 4) + (y << 8);
   char skylight_local      = skylightPtr[index >> 1];
   char blocklight_local    = blocklightPtr[index >> 1];
 
-  if (y & 1)
+  if (x & 1)
   {
     if (type & 0x5) // 1 or 4
     {
@@ -826,7 +892,7 @@ bool Map::setLight(int x, int y, int z, int skylight, int blocklight, int type, 
 
 bool Map::setBlock(int x, int y, int z, char type, char meta)
 {
-  if ((y < 0) || (y > 127))
+  if ((y < 0) || (y > 255))
   {
     LOGLF("Invalid y value (setBlock)");
     return false;
@@ -850,11 +916,11 @@ bool Map::setBlock(int x, int y, int z, char type, char meta)
 
   uint8_t* blocks      = chunk->blocks;
   uint8_t* metapointer = chunk->data;
-  int index          = y + (chunk_block_z << 7) + (chunk_block_x << 11);
+  int index          = chunk_block_x + (chunk_block_z << 4) + (y << 8);
   blocks[index] = type;
   char metadata      = metapointer[index >> 1];
 
-  if (y & 1)
+  if (chunk_block_x & 1)
   {
     metadata &= 0x0f;
     metadata |= meta << 4;
@@ -873,7 +939,7 @@ bool Map::setBlock(int x, int y, int z, char type, char meta)
   if (type == BLOCK_AIR)
   {
     uint8_t temp_type = 0, temp_meta = 0;
-    int8_t temp_y = y;
+    int16_t temp_y = y;
     while (getBlock(x, temp_y, z, &temp_type, &temp_meta, false) && (temp_type == BLOCK_AIR))
     {
       temp_y--;
@@ -894,7 +960,7 @@ bool Map::setBlock(int x, int y, int z, char type, char meta)
   return true;
 }
 
-bool Map::sendBlockChange(int x, int y, int z, char type, char meta)
+bool Map::sendBlockChange(int x, int y, int z, int16_t type, char meta)
 {
   const ChunkMap::const_iterator it = chunks.find(Coords(blockToChunk(x), blockToChunk(z)));
 
@@ -905,7 +971,7 @@ bool Map::sendBlockChange(int x, int y, int z, char type, char meta)
 
   Packet pkt;
 
-  pkt << Protocol::blockChange( (int32_t)x, (int8_t)y, (int32_t)z, (int8_t)type, (int8_t)meta );
+  pkt << (int8_t)PACKET_BLOCK_CHANGE << (int32_t)x << (int8_t)y << (int32_t)z << (int16_t)type << (int8_t)meta;
 
   it->second->sendPacket(pkt);
 
@@ -923,7 +989,7 @@ bool Map::sendNote(int x, int y, int z, char instrument, char pitch)
 
   Packet pkt;
 
-  pkt << Protocol::blockAction( (int32_t)x, (int16_t)y, (int32_t)z, (int8_t)instrument, (int8_t)pitch );
+  pkt << (int8_t)PACKET_PLAY_NOTE << (int32_t)x << (int16_t)y << (int32_t)z << (int8_t)instrument << (int8_t)pitch;
 
   it->second->sendPacket(pkt);
 
@@ -952,16 +1018,16 @@ bool Map::sendPickupSpawn(spawnedItem item)
 
   Packet pkt;
 
-  pkt << Protocol::pickupSpawn( (int32_t)item.EID, (int16_t)item.item, (int8_t)item.count, (int16_t)item.health,
-                                (int32_t)item.pos.x(), (int32_t)item.pos.y(), (int32_t)item.pos.z(),
-                                (int8_t)0, (int8_t)0, (int8_t)0 );
+  pkt << (int8_t)PACKET_PICKUP_SPAWN << (int32_t)item.EID << (int16_t)item.item << (int8_t)item.count << (int16_t)item.health
+      << (int32_t)item.pos.x() << (int32_t)item.pos.y() << (int32_t)item.pos.z()
+      << (int8_t)0 << (int8_t)0 << (int8_t)0;
 
   it->second->sendPacket(pkt);
 
   return true;
 }
 
-void Map::createPickupSpawn(int x, int y, int z, int type, int count, int health, User* user, bool thrown)
+void Map::createPickupSpawn(int x, int y, int z, int type, int count, int health, User* user)
 {
   spawnedItem item;
   item.EID      = Mineserver::generateEID();
@@ -978,7 +1044,7 @@ void Map::createPickupSpawn(int x, int y, int z, int type, int count, int health
   // If so, find the lowest air block at x,*,z that we can place it in and move it there
   // Effectively we get... Gravity!
   uint8_t temp_type = 0, temp_meta = 0;
-  int8_t temp_y = y;
+  int16_t temp_y = y;
   if (getBlock(x, temp_y, z, &temp_type, &temp_meta, false) && (temp_type == BLOCK_AIR))
   {
     while (getBlock(x, temp_y, z, &temp_type, &temp_meta, false) && (temp_type == BLOCK_AIR))
@@ -991,71 +1057,14 @@ void Map::createPickupSpawn(int x, int y, int z, int type, int count, int health
     y = temp_y;
   }
 
-  //TODO: make a function that in user.cpp
-  //      void positionInFrontOfUsersView( int distanceFromUser, otherdata )
-  if( thrown )
-  {
-    // Below is for position
-    double tempx = ( user->pos.x * 32 );
-    double tempy = ( user->pos.y + 1.5f ) * 32;
-    double tempz = ( user->pos.z * 32 );
-    int distFromUser = 16; // 32 is one whole block away
-
-    //userYaw makes the player's yaw between 0-359
-    float userYaw = ((int)user->pos.yaw % 360) + (user->pos.yaw - (int)user->pos.yaw);
-    if( user->pos.yaw < 0 )
-    {
-      userYaw += 360;
-    }
-
-    // Change below to be just * -1 in tenary
-    if( user->pos.pitch < 0 )
-    {
-      tempy = ( distFromUser * abs(sin(user->pos.pitch / 90.f))) + (user->pos.y + 1.5f) * 32;
-    }
-    else if ( user->pos.pitch > 0 )
-    {
-      tempy = -( distFromUser * abs(sin(user->pos.pitch / 90.f))) + (user->pos.y + 1.5f) * 32;
-    }
-    //Is to possbile to change below?
-    if( userYaw != 0 && userYaw != 180 )
-    {
-      tempx = ( ( -distFromUser * sin(user->pos.yaw * (M_PI / 180.0f) ) ) * cos( user->pos.pitch * (M_PI / 180.0f) ) ) + (user->pos.x * 32);
-    }
-    if( userYaw != 90 && userYaw != 270 )
-    {
-      tempz = ( ( distFromUser * cos(user->pos.yaw * (M_PI / 180.0f) ) ) * cos( user->pos.pitch * (M_PI / 180.0f) ) ) + (user->pos.z * 32);
-    }
-
-    item.pos.x()  = tempx;
-    item.pos.y()  = tempy;
-    item.pos.z()  = tempz;
-
-  }
-  else
-  {
-    item.pos.x()  = x * 32;
-    item.pos.y()  = y * 32;
-    item.pos.z()  = z * 32;
-    //Randomize spawn position a bit
-    item.pos.x() += 5 + (rand() % 22);
-    item.pos.z() += 5 + (rand() % 22);
-  }
+  item.pos.x()  = x * 32;
+  item.pos.y()  = y * 32;
+  item.pos.z()  = z * 32;
+  //Randomize spawn position a bit
+  item.pos.x() += 5 + (rand() % 22);
+  item.pos.z() += 5 + (rand() % 22);
 
   sendPickupSpawn(item);
-
-  if( thrown )
-  {
-  const int horizontalVelocity = 0.30 * 8000;
-  const int verticalVelocity = 0.75 * 8000;
-
-  Packet  pkt;
-  pkt << Protocol::entityVelocity( item.EID, (int)(sin(-(user->pos.yaw / 360.f) * 2.f * M_PI) * cos(user->pos.pitch * (M_PI / 180.0f)) * horizontalVelocity),
-              (int)(sinf(-(user->pos.pitch / 90.f)) * verticalVelocity),
-              (int)(cos(-(user->pos.yaw / 360.f) * 2.f * M_PI) * cos(user->pos.pitch * (M_PI / 180.0f)) * horizontalVelocity));
-  user->sendAll(pkt);
-  }
-
 }
 
 bool Map::sendProjectileSpawn(User* user, int8_t projID)
@@ -1065,20 +1074,116 @@ bool Map::sendProjectileSpawn(User* user, int8_t projID)
     return false;
   }
 
-  //ItemProjectile* projectile = new ItemProjectile(user, projID);
+  Packet  pkt;
+  int32_t EID = Mineserver::generateEID();
+  float   tempMult = 1.f - abs(user->pos.pitch / 90.f);
 
-  ////TODO: enable once moved.
-  //Mineserver::get()->entityManager()->add((entityPtr)projectile);
+  //
+  // Below is for position and velocity
+  //
+  double tempx = ( user->pos.x * 32 );
+  double tempy = ( user->pos.y + 1.5f ) * 32;
+  double tempz = ( user->pos.z * 32 );
+  int distFromUser = 50; // 32 is one whole block away, 50 seems to work while walking
 
-  //Packet  pkt;
+  //userYaw makes the player's yaw between 0-359
+  float userYaw = ((int)user->pos.yaw % 360) + (user->pos.yaw - (int)user->pos.yaw);
+  if( user->pos.yaw < 0 )
+  {
+    userYaw += 360;
+  }
 
-  //pkt << Protocol::entity( (int32_t)projectile->getEID() )
-  //    << Protocol::addObject( (int32_t)projectile->getEID(), (int8_t)projID, (int32_t)projectile->getPosition().x, (int32_t)projectile->getPosition().y, (int32_t)projectile->getPosition().z, (int32_t)0 )
-  //    << Protocol::entityVelocity( (int32_t)projectile->getEID(), (int16_t)projectile->getVelocity().x, (int16_t)projectile->getVelocity().y, (int16_t)projectile->getVelocity().z );
+  if( user->pos.pitch < 0 )
+  {
+    tempy = ( distFromUser * abs(sin(user->pos.pitch / 90.f))) + (user->pos.y + 1.5f) * 32;
+  }
+  else if ( user->pos.pitch > 0 )
+  {
+    tempy = -( distFromUser * abs(sin(user->pos.pitch / 90.f))) + (user->pos.y + 1.5f) * 32;
+  }
 
-  //user->sendAll(pkt);
+  if( userYaw != 0 && userYaw != 180 )
+  {
+    tempx = ( ( -distFromUser * sin(user->pos.yaw * (M_PI / 180.0f) ) ) * cos( user->pos.pitch * (M_PI / 180.0f) ) ) + (user->pos.x * 32);
+  }
+  if( userYaw != 90 && userYaw != 270 )
+  {
+    tempz = ( ( distFromUser * cos(user->pos.yaw * (M_PI / 180.0f) ) ) * cos( user->pos.pitch * (M_PI / 180.0f) ) ) + (user->pos.z * 32);
+  }
+
+  vec pos = vec((int)tempx, (int)tempy, (int)tempz);
+
+  //The 9000 and 14000 are based off of trial and error.  Not calculated to exactly mimic notchian projectile.
+  vec vel = vec((int)(sin(-(user->pos.yaw / 360.f) * 2.f * M_PI) * cos(user->pos.pitch * (M_PI / 180.0f)) * 9000.f),
+                (int)(sinf(-(user->pos.pitch / 90.f)) * 14000.f),
+                (int)(cos(-(user->pos.yaw / 360.f) * 2.f * M_PI) * cos(user->pos.pitch * (M_PI / 180.0f)) * 9000.f));
+
+  pkt << (int8_t)PACKET_ENTITY << (int32_t)EID
+      << (int8_t)PACKET_ADD_OBJECT << (int32_t)EID << (int8_t)projID << (int32_t)pos.x() << (int32_t)pos.y() << (int32_t)pos.z() << (int32_t)0
+      << (int8_t)PACKET_ENTITY_VELOCITY << (int32_t)EID << (int16_t)vel.x() << (int16_t)vel.y() << (int16_t)vel.z();
+
+
+  user->sendAll(pkt);
 
   return true;
+}
+
+bool Map::suitableForSpawn(const vec &pos)
+{
+  uint8_t block, meta;
+  if (!getBlock(pos.x(), pos.y()-1, pos.z(), &block, &meta, false)) return false;
+  return block != BLOCK_AIR && block != BLOCK_WATER && block != BLOCK_STATIONARY_WATER
+      && block != BLOCK_LAVA && block != BLOCK_STATIONARY_LAVA
+      && (getBlock(pos.x(), pos.y(), pos.z(), &block, &meta, false) && block == BLOCK_AIR)
+      && (getBlock(pos.x(), pos.y()+1, pos.z(), &block, &meta, false) && block == BLOCK_AIR);
+}
+
+bool Map::chooseSpawnPosition()
+{
+  uint8_t block, meta;
+  bool found = false;
+  // Make sure spawn position is not underground!
+  uint8_t new_y;
+  int new_x, new_z;
+  for (new_x = spawnPos.x(); new_x < spawnPos.x() + 100; new_x += 5)
+  {
+    for (new_z = spawnPos.z(); new_z < spawnPos.z() + 100; new_z += 5)
+    {
+      for (new_y = spawnPos.y(); new_y > 30; new_y--)
+      {
+        // Skip this colomn, we don't want to be underground
+        if (!getBlock(new_x, new_y, new_z, &block, &meta, false) ||
+            block != BLOCK_AIR) break;
+        if (suitableForSpawn(vec(new_x, new_y, new_z)))
+        {
+          found = true;
+          goto labelFound;
+        }
+      }
+    }
+  }
+labelFound:
+  if (found)
+  {
+    //Store new spawn position to level.dat
+    spawnPos.x() = new_x;
+    spawnPos.y() = new_y;
+    spawnPos.z() = new_z;
+    std::string infile = mapDirectory + "/level.dat";
+    NBT_Value* root = NBT_Value::LoadFromFile(infile);
+    if (root != NULL)
+    {
+      NBT_Value& data = *((*root)["Data"]);
+      *data["SpawnX"] = (int32_t)spawnPos.x();
+      *data["SpawnY"] = (int32_t)spawnPos.y();
+      *data["SpawnZ"] = (int32_t)spawnPos.z();
+
+      root->SaveToFile(infile);
+
+      delete root;
+    }
+  }
+  return found;
 }
 
 sChunk* Map::loadMap(int x, int z, bool generate)
@@ -1111,45 +1216,9 @@ sChunk* Map::loadMap(int x, int z, bool generate)
     if (generate)
     {
       // Re-seed! We share map gens with other maps
-      Mineserver::get()->mapGen(m_number)->init((int32_t)mapSeed);
-      Mineserver::get()->mapGen(m_number)->generateChunk(x, z, m_number);
+      ServerInstance->mapGen(m_number)->init((int32_t)mapSeed);
+      ServerInstance->mapGen(m_number)->generateChunk(x, z, m_number);
       generateLight(x, z);
-      //If we generated spawn pos, make sure the position is not underground!
-      if (x == blockToChunk(spawnPos.x()) && z == blockToChunk(spawnPos.z()))
-      {
-        uint8_t block, meta;
-        bool foundLand = false;
-        if (getBlock(spawnPos.x(), spawnPos.y(), spawnPos.z(), &block, &meta, false) && block == BLOCK_AIR)
-        {
-          uint8_t new_y;
-          for (new_y = spawnPos.y(); new_y > 30; new_y--)
-          {
-            if (getBlock(spawnPos.x(), new_y, spawnPos.z(), &block, &meta, false) && block != BLOCK_AIR)
-            {
-              foundLand = true;
-              break;
-            }
-          }
-          if (foundLand)
-          {
-            //Store new spawn position to level.dat
-            spawnPos.y() = new_y + 1;
-            std::string infile = mapDirectory + "/level.dat";
-            NBT_Value* root = NBT_Value::LoadFromFile(infile);
-            if (root != NULL)
-            {
-              NBT_Value& data = *((*root)["Data"]);
-              *data["SpawnX"] = (int32_t)spawnPos.x();
-              *data["SpawnY"] = (int32_t)spawnPos.y();
-              *data["SpawnZ"] = (int32_t)spawnPos.z();
-
-              root->SaveToFile(infile);
-
-              delete root;
-            }
-          }
-        }
-      }
       delete newRegion;
       delete [] chunkPointer;
       return getChunk(x, z);
@@ -1169,6 +1238,7 @@ sChunk* Map::loadMap(int x, int z, bool generate)
   //Load NBT from memory
   chunk->nbt = NBT_Value::LoadFromMemory(chunkPointer, chunkLen);
 
+
   delete [] chunkPointer;
 
 
@@ -1176,8 +1246,8 @@ sChunk* Map::loadMap(int x, int z, bool generate)
   {
     LOGLF("Error in loading map (unable to load file)");
     delete chunk;
-    Mineserver::get()->mapGen(m_number)->init((int32_t)mapSeed);
-    Mineserver::get()->mapGen(m_number)->generateChunk(x, z, m_number);
+    ServerInstance->mapGen(m_number)->init((int32_t)mapSeed);
+    ServerInstance->mapGen(m_number)->generateChunk(x, z, m_number);
     generateLight(x, z);
     return getChunk(x, z);
   }
@@ -1188,8 +1258,8 @@ sChunk* Map::loadMap(int x, int z, bool generate)
   {
     LOGLF("Error in loading map (unable to find Level)");
     delete chunk;
-    Mineserver::get()->mapGen(m_number)->init((int32_t)mapSeed);
-    Mineserver::get()->mapGen(m_number)->generateChunk(x, z, m_number);
+    ServerInstance->mapGen(m_number)->init((int32_t)mapSeed);
+    ServerInstance->mapGen(m_number)->generateChunk(x, z, m_number);
     generateLight(x, z);
     return getChunk(x, z);
   }
@@ -1206,56 +1276,75 @@ sChunk* Map::loadMap(int x, int z, bool generate)
   {
     LOG(WARNING, "Map", "incorrect chunk (missing xPos or zPos) regenerating");
     delete chunk;
-    Mineserver::get()->mapGen(m_number)->init((int32_t)mapSeed);
-    Mineserver::get()->mapGen(m_number)->generateChunk(x, z, m_number);
+    ServerInstance->mapGen(m_number)->init((int32_t)mapSeed);
+    ServerInstance->mapGen(m_number)->generateChunk(x, z, m_number);
     generateLight(x, z);
     return getChunk(x, z);
   }
 
-  NBT_Value* nbt_blocks     = (*level)["Blocks"];
-  NBT_Value* nbt_data       = (*level)["Data"];
-  NBT_Value* nbt_blocklight = (*level)["BlockLight"];
-  NBT_Value* nbt_skylight   = (*level)["SkyLight"];
   NBT_Value* nbt_heightmap  = (*level)["HeightMap"];
 
-  if (!nbt_blocks || !nbt_data || !nbt_blocklight || !nbt_skylight || !nbt_heightmap)
-  {
-    LOGLF("Error in loading map (chunk missing data)");
-    delete chunk;
-    return NULL;
-  }
-
-  std::vector<uint8_t>* blocks = nbt_blocks->GetByteArray();
-  std::vector<uint8_t>* data = nbt_data->GetByteArray();
-  std::vector<uint8_t>* blocklight = nbt_blocklight->GetByteArray();
-  std::vector<uint8_t>* skylight = nbt_skylight->GetByteArray();
-  std::vector<uint8_t>* heightmap = nbt_heightmap->GetByteArray();
-
-  if (!blocks || !data || !blocklight || !skylight || !heightmap)
-  {
-    LOGLF("Error in loading map (chunk missing data)");
-    delete chunk;
-    return NULL;
-  }
-
-  size_t fullLen = (16 * 128 * 16);
+  size_t fullLen = (16 * 256 * 16);
   size_t halfLen = fullLen >> 1;
-  //Check that there is all the data we need
-  if (blocks->size()     != fullLen ||
-      data->size()       != halfLen ||
-      blocklight->size() != halfLen ||
-      skylight->size()   != halfLen)
-  {
-    LOGLF("Error in loading map (corrupt?)");
-    delete chunk;
-    return NULL;
-  }
+  //chunk->blocks     = new uint8_t[fullLen];
+  //chunk->addblocks  = new uint8_t[halfLen];
+  //chunk->data       = new uint8_t[halfLen];
+  //chunk->blocklight = new uint8_t[halfLen];
+  //chunk->skylight   = new uint8_t[halfLen];
+  chunk->heightmap  = nbt_heightmap->GetIntArray()->data();
+  chunk->chunks_present = 0;
+  chunk->addblocks_present = 0;
 
-  chunk->blocks     = &((*blocks)[0]);
-  chunk->data       = &((*data)[0]);
-  chunk->blocklight = &((*blocklight)[0]);
-  chunk->skylight   = &((*skylight)[0]);
-  chunk->heightmap  = &((*heightmap)[0]);
+
+  //Clear all because there might not be every 16x16 block in the file
+  memset(chunk->blocks,    0, fullLen);
+  memset(chunk->addblocks, 0, halfLen);
+  memset(chunk->data,      0, halfLen);
+  memset(chunk->blocklight,0, halfLen);
+  memset(chunk->skylight,  0, halfLen);
+
+  //Loading "Anvil" type data structure
+  NBT_Value* nbt_sections     = (*level)["Sections"];
+  std::vector<NBT_Value*>* nbt_list = nbt_sections->GetList();
+
+  std::vector<NBT_Value*>::iterator nbt_list_iter;
+  
+  for(nbt_list_iter = nbt_list->begin(); nbt_list_iter != nbt_list->end(); nbt_list_iter++)
+  {
+    NBT_Value& compound = *(*nbt_list_iter);
+    int16_t Y = (uint8_t)((int8_t) *compound["Y"]);
+    chunk->chunks_present |= 1<<Y;
+    NBT_Value* nbt_blocks     = compound["Blocks"];  
+    NBT_Value* nbt_data       = compound["Data"];
+    NBT_Value* nbt_blocklight = compound["BlockLight"];
+    NBT_Value* nbt_skylight   = compound["SkyLight"];
+    NBT_Value* nbt_addblocks  = compound["AddBlocks"];
+
+    if (nbt_blocks->GetByteArray()->size()     != 16*16*16   ||
+        nbt_data->GetByteArray()->size()       != 16*16*16/2 ||
+        nbt_blocklight->GetByteArray()->size() != 16*16*16/2 ||
+        nbt_skylight->GetByteArray()->size()   != 16*16*16/2)
+    {
+      LOGLF("Error in loading map (corrupt?)");
+      delete chunk;
+      return NULL;
+    }
+    uint32_t offset = 16*16*16*Y;
+    memcpy(chunk->blocks+offset, nbt_blocks->GetByteArray()->data(), 16*16*16);
+    memcpy(chunk->data+offset/2, nbt_data->GetByteArray()->data(), 16*16*16/2);
+    memcpy(chunk->blocklight+offset/2, nbt_blocklight->GetByteArray()->data(), 16*16*16/2);
+    memcpy(chunk->skylight+offset/2, nbt_skylight->GetByteArray()->data(), 16*16*16/2);
+
+    if (nbt_blocks->GetByteArray()->size() == 16*16*16/2)
+    {
+      chunk->addblocks_present |= 1<<Y;
+      memcpy(chunk->addblocks+offset/2, nbt_addblocks->GetByteArray()->data(), 16*16*16/2);
+    }
+
+    //Clear the data from the NBT
+    delete *nbt_list_iter;
+  }
+  nbt_list->clear();
 
   chunks.insert(ChunkMap::value_type(ChunkMap::key_type(x, z), chunk));
 
@@ -1413,7 +1502,7 @@ sChunk* Map::loadMap(int x, int z, bool generate)
 
           //Push to our furnace storage at chunk and check for possible activity
           chunk->furnaces.push_back(newFurnace);
-          Mineserver::get()->furnaceManager()->handleActivity(newFurnace);
+          ServerInstance->furnaceManager()->handleActivity(newFurnace);
         }
       }
 
@@ -1540,10 +1629,45 @@ bool Map::saveMap(int x, int z)
     entityList->GetList()->push_back(val);
   }
 
+  NBT_Value* sections = (*(*chunk->nbt)["Level"])["Sections"];
+  //Store chunk data to NBT
+  for(uint32_t Y = 0; Y < 16; Y++)
+  {
+    uint32_t offset = 16*16*16*Y;
+    if(chunk->chunks_present & (1<<Y))
+    {
+      NBT_Value* val = new NBT_Value(NBT_Value::TAG_COMPOUND);
+      val->Insert("Y", new NBT_Value((int8_t)Y));
+      val->Insert("Blocks", new NBT_Value(&chunk->blocks[offset], 16*16*16));
+      val->Insert("Data", new NBT_Value(&chunk->data[offset>>1], 16*16*16/2));
+      val->Insert("SkyLight", new NBT_Value(&chunk->skylight[offset>>1], 16*16*16/2));
+      val->Insert("BlockLight", new NBT_Value(&chunk->blocklight[offset>>1], 16*16*16/2));
+      if(chunk->addblocks_present & (1<<Y))
+      {
+        val->Insert("AddBlocks", new NBT_Value(&chunk->addblocks[offset>>1], 16*16*16/2));
+      }
+      sections->GetList()->push_back(val);
+    }
+  }
+
+
   //Allocate memory for NBT and save (+deflate) it
   uint8_t* buffer = new uint8_t[ALLOCATE_NBTFILE];
   uint32_t len;
   chunk->nbt->SaveToMemory(buffer, &len);
+
+
+  //Clear off the chunk data
+  NBT_Value* nbt_sections     = (*(*chunk->nbt)["Level"])["Sections"];
+  std::vector<NBT_Value*>* nbt_list = nbt_sections->GetList();
+  std::vector<NBT_Value*>::iterator nbt_list_iter;
+  
+  for(nbt_list_iter = nbt_list->begin(); nbt_list_iter != nbt_list->end(); nbt_list_iter++)
+  {
+    delete *nbt_list_iter;
+  }
+  nbt_list->clear();
+
 
   //Open regionfile and write chunk
   RegionFile newRegion;
@@ -1597,12 +1721,12 @@ bool Map::sendMultiBlocks(std::set<vec>& blocks)
     unsigned int offsetx = chunk_x << 4;
     unsigned int offsetz = chunk_z << 4;
 
-    packet << Protocol::multiBlock( (int32_t) chunk_x, (int32_t) chunk_z, (int16_t) toRem.size() );
+    packet << (int8_t) PACKET_MULTI_BLOCK_CHANGE << (int32_t) chunk_x << (int32_t) chunk_z << (int16_t) toRem.size();
 
     for (std::set<vec>::const_iterator it = toRem.begin(); it != toRem.end(); ++it)
     {
       uint8_t block, meta;
-      Mineserver::get()->map(m_number)->getBlock(it->x(), it->y(), it->z(), &block, &meta);
+      ServerInstance->map(m_number)->getBlock(it->x(), it->y(), it->z(), &block, &meta);
 
       // Sending packet a uint16_t makes it assume int...
       uint16_t coord = (((it->x() - offsetx) << 12) + ((it->z() - offsetz) << 8) + (it->y()));
@@ -1656,8 +1780,7 @@ void Map::sendToUser(User* user, int x, int z, bool login)
     return;
   }
 
-  uint8_t* data4   = new uint8_t[18 + 81920];
-  uint8_t* mapdata = new uint8_t[81920];
+  uint8_t* mapdata = new uint8_t[98304*2+256];
   int32_t mapposx    = x;
   int32_t mapposz    = z;
 
@@ -1668,33 +1791,42 @@ void Map::sendToUser(User* user, int x, int z, bool login)
     chunk->lightRegen = false;
   }
 
+  
+  //ToDo: now sending all 16 16x16 chunks, limit to only those with blocks.
+  // Chunk
+  (*p) << (int8_t)PACKET_MAP_CHUNK << (int32_t)(mapposx) << (int32_t)(mapposz)
+       << (int8_t)1 /* Biome Data bool? */ << (int16_t)0xffff /* Enabled chunks 0..15 */
+       << (int16_t)0xffff /* Enabled additional data? in the enabled chunks */;
 
-  memcpy(&mapdata[0], chunk->blocks, 32768);
-  memcpy(&mapdata[32768], chunk->data, 16384);
-  memcpy(&mapdata[32768 + 16384], chunk->blocklight, 16384);
-  memcpy(&mapdata[32768 + 16384 + 16384], chunk->skylight, 16384);
 
-  uLongf written = 81920;
+  memcpy(&mapdata[0], chunk->blocks, 32768*2);
+  memcpy(&mapdata[32768*2], chunk->data, 16384*2);
+  memcpy(&mapdata[(32768 + 16384)*2], chunk->blocklight, 16384*2);
+  memcpy(&mapdata[(32768 + 16384 + 16384)*2], chunk->skylight, 16384*2);
+  memcpy(&mapdata[(32768 + 16384 + 16384 + 16384)*2], chunk->addblocks, 16384*2);
+  //Biome data
+  memset(&mapdata[(32768 + 16384 + 16384 + 16384 + 16384)*2], 0, 256);
+
+
+  uLongf written = 98304*2+256;
   uint8_t* buffer = new uint8_t[written];
 
   // Compress data with zlib deflate
-  compress(buffer, &written, &mapdata[0], 81920);
+  compress(buffer, &written, mapdata, 98304*2+256);
 
-  // Chunk
-  (*p) << Protocol::mapChunk( (int32_t)(mapposx * 16), (int16_t)0, (int32_t)(mapposz * 16), (int8_t)15, (int8_t)127, (int8_t)15, (int32_t)written );
+  (*p) << (int32_t)written;
   (*p).addToWrite(buffer, written);
 
   //Push sign data to player
   for (size_t i = 0; i < chunk->signs.size(); ++i)
   {
-    (*p) << Protocol::updateSign( chunk->signs[i]->x, (int16_t)chunk->signs[i]->y, chunk->signs[i]->z,
-                                  chunk->signs[i]->text1, chunk->signs[i]->text2, chunk->signs[i]->text3, chunk->signs[i]->text4 );
+    (*p) << (int8_t)PACKET_SIGN << chunk->signs[i]->x << (int16_t)chunk->signs[i]->y << chunk->signs[i]->z;
+    (*p) << chunk->signs[i]->text1 << chunk->signs[i]->text2 << chunk->signs[i]->text3 << chunk->signs[i]->text4;
   }
 
 
   delete[] buffer;
 
-  delete[] data4;
   delete[] mapdata;
 }
 

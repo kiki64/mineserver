@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2011, The Mineserver Project
+  Copyright (c) 2012, The Mineserver Project
   All rights reserved.
 
   Redistribution and use in source and binary forms, with or without
@@ -51,10 +51,10 @@ Chat::~Chat()
 
 bool Chat::sendUserlist(User* user)
 {
-  sendMsg(user, MC_COLOR_BLUE + "[ " + dtos(User::all().size()) + " / " + dtos(Mineserver::get()->config()->iData("system.user_limit")) + " players online ]", USER);
+  sendMsg(user, MC_COLOR_BLUE + "[ " + dtos(User::all().size()) + " / " + dtos(ServerInstance->config()->iData("system.user_limit")) + " players online ]", USER);
   std::string playerDesc;
 
-  for (std::set<User*>::const_iterator it = Mineserver::get()->users().begin(); it != Mineserver::get()->users().end(); ++it)
+  for (std::set<User*>::const_iterator it = ServerInstance->users().begin(); it != ServerInstance->users().end(); ++it)
   {
     if (!(*it)->logged)
     {
@@ -139,11 +139,12 @@ bool Chat::handleMsg(User* user, std::string msg)
   std::string timeStamp(asctime(Tm));
   timeStamp = timeStamp.substr(11, 5);
 
-  if ((static_cast<Hook3<bool, const char*, time_t, const char*>*>(Mineserver::get()->plugin()->getHook("PlayerChatPre")))->doUntilFalse(user->nick.c_str(), rawTime, msg.c_str()))
+  runCallbackUntilFalse("PlayerChatPre",user->nick.c_str(), rawTime, msg.c_str());
+  if (callbackReturnValue)
   {
     return false;
   }
-  (static_cast<Hook3<bool, const char*, time_t, const char*>*>(Mineserver::get()->plugin()->getHook("PlayerChatPost")))->doAll(user->nick.c_str(), rawTime, msg.c_str());
+  runAllCallback("PlayerChatPost",user->nick.c_str(), rawTime, msg.c_str());
   char prefix = msg[0];
 
   switch (prefix)
@@ -196,7 +197,7 @@ void Chat::handleCommand(User* user, std::string msg, const std::string& timeSta
   }
 
   // If hardcoded auth command!
-  if (command == "auth" && param[0] == Mineserver::get()->config()->sData("system.admin.password"))
+  if (command == "auth" && param[0] == ServerInstance->config()->sData("system.admin.password"))
   {
     user->serverAdmin = true;
     msg = MC_COLOR_RED + "[!] " + MC_COLOR_GREEN + "You have been authed as admin!";
@@ -204,7 +205,7 @@ void Chat::handleCommand(User* user, std::string msg, const std::string& timeSta
   }
   else
   {
-    (static_cast<Hook4<bool, const char*, const char*, int, const char**>*>(Mineserver::get()->plugin()->getHook("PlayerChatCommand")))->doAll(user->nick.c_str(), command.c_str(), cmd.size(), (const char**)param);
+    runAllCallback("PlayerChatCommand",user->nick.c_str(), command.c_str(), cmd.size(), (const char**)param);
   }
 
   delete [] param;

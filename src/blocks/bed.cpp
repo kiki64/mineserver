@@ -25,84 +25,44 @@
   SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "../chat.h"
-#include "../mineserver.h"
-#include "../map.h"
-#include "../protocol.h"
+#include "mineserver.h"
+#include "map.h"
 
 #include "bed.h"
 
 
-void BlockBed::onStartedDigging(User* user, int8_t status, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+void BlockBed::onStartedDigging(User* user, int8_t status, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
 
 }
 
-void BlockBed::onDigging(User* user, int8_t status, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+void BlockBed::onDigging(User* user, int8_t status, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
 
 }
 
-void BlockBed::onStoppedDigging(User* user, int8_t status, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+void BlockBed::onStoppedDigging(User* user, int8_t status, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
 
 }
 
-bool BlockBed::onBroken(User* user, int8_t status, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+bool BlockBed::onBroken(User* user, int8_t status, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
-  uint8_t block;
-  uint8_t meta;
-  int zMod = 0, xMod = 0;
-
-  if (!Mineserver::get()->map(map)->getBlock(x, y, z, &block, &meta))
-  {
-    return true;
-  }
-
-  // Find the other part of the bed to remove
-  switch (meta)
-  {
-  // Foot of bed
-  case BLOCK_TOP:
-  case HEAD_OF_BED_EAST:
-	  xMod = -1;
-    break;
-  case BLOCK_SOUTH:
-  case HEAD_OF_BED_WEST:
-	  xMod = +1;
-    break;
-  case BLOCK_NORTH:
-  case HEAD_OF_BED_NORTH:
-	  zMod = -1;
-    break;
-  case BLOCK_BOTTOM:
-  case HEAD_OF_BED_SOUTH:
-	  zMod = +1;
-    break;
-  }
-
-  Mineserver::get()->map(map)->sendBlockChange(x, y, z, BLOCK_AIR, 0);
-  Mineserver::get()->map(map)->setBlock(x, y, z, BLOCK_AIR, 0);
-
-  Mineserver::get()->map(map)->setBlock(x + xMod, y, z + zMod, BLOCK_AIR, 0);
-  Mineserver::get()->map(map)->sendBlockChange(x + xMod, y, z + zMod, BLOCK_AIR, 0);
-
-  this->spawnBlockItem(x, y, z, map,  block);
   return false;
 }
 
-void BlockBed::onNeighbourBroken(User* user, int16_t oldblock, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+void BlockBed::onNeighbourBroken(User* user, int16_t oldblock, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
 
 }
 
-bool BlockBed::onPlace(User* user, int16_t newblock, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+bool BlockBed::onPlace(User* user, int16_t newblock, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
   uint8_t oldblock;
   uint8_t oldmeta;
   int zMod = 0, xMod = 0;
 
-  if (!Mineserver::get()->map(map)->getBlock(x, y, z, &oldblock, &oldmeta))
+  if (!ServerInstance->map(map)->getBlock(x, y, z, &oldblock, &oldmeta))
   {
     revertBlock(user, x, y, z, map);
     return true;
@@ -145,98 +105,47 @@ bool BlockBed::onPlace(User* user, int16_t newblock, int32_t x, int8_t y, int32_
   switch (direction)
   {
   case BLOCK_EAST:
-	  xMod = -1;
-    direction = BLOCK_TOP;
-    break;
-  case BLOCK_WEST:
-	  xMod = +1;
     direction = BLOCK_SOUTH;
+	zMod = -1;
+	xMod = 0;
+    break;
+  case BLOCK_BOTTOM:
+    direction = BLOCK_EAST;
+	zMod = 0;
+	xMod = +1;
     break;
   case BLOCK_NORTH:
-	  zMod = +1;
-    direction = BLOCK_BOTTOM;
+    direction = BLOCK_NORTH;
+	zMod = 0;
+	xMod = -1;
     break;
   case BLOCK_SOUTH:
-	  zMod = -1;
-    direction = BLOCK_NORTH;
+    direction = BLOCK_BOTTOM;
+	zMod = +1;
+	xMod = 0;
     break;
   }
 
-  // Check where head of the bed will be
-  if (!this->isBlockEmpty(x + xMod, y, z + zMod, map))
-  {
-    revertBlock(user, x + xMod, y, z + zMod, map);
-    return true;
-  }
-
-  Mineserver::get()->map(map)->setBlock(x, y, z, (char)newblock, direction);
-  Mineserver::get()->map(map)->sendBlockChange(x, y, z, (char)newblock, direction);
+  ServerInstance->map(map)->setBlock(x, y, z, (char)newblock, direction);
+  ServerInstance->map(map)->sendBlockChange(x, y, z, (char)newblock, direction);
 
   // set head of the bed
   direction ^= 8;
 
-  Mineserver::get()->map(map)->setBlock(x + xMod, y, z + zMod, (char)newblock, direction);
-  Mineserver::get()->map(map)->sendBlockChange(x + xMod, y, z + zMod, (char)newblock, direction);
+  ServerInstance->map(map)->setBlock(x + xMod, y, z + zMod, (char)newblock, direction);
+  ServerInstance->map(map)->sendBlockChange(x + xMod, y, z + zMod, (char)newblock, direction);
   return false;
 }
 
-void BlockBed::onNeighbourPlace(User* user, int16_t newblock, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+void BlockBed::onNeighbourPlace(User* user, int16_t newblock, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
 }
 
-void BlockBed::onReplace(User* user, int16_t newblock, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+void BlockBed::onReplace(User* user, int16_t newblock, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
 }
 
-bool BlockBed::onInteract(User* user, int32_t x, int8_t y, int32_t z, int map)
+bool BlockBed::onInteract(User* user, int32_t x, int16_t y, int32_t z, int map)
 {
-  //TODO: Check if this bed is already occupied.
-
-  // To early to sleep
-  if( Mineserver::get()->map(user->pos.map)->mapTime < 12000 )
-  {
-    Mineserver::get()->chat()->sendMsg( user, "You can only sleep at night.", Chat::USER );
-    return false;
-  }
-
-  getHeadofBed( user, x, y, z );
-  user->sendAll(Protocol::useBed( user->UID, 0, x, y, z ));
-  
-  //Set user's new spawn position
-  if( user->setRespawn( x, y, z ) )
-  {
-    Mineserver::get()->chat()->sendMsg( user, "Respawn location set.", Chat::USER );
-  }
-
-  // TODO:
-  // Checking if all players on the server should be on the main loop.  If one user is not sleeping move on.
-  // If all are sleeping change time and remove all users from their beds.
-
-  return true;
-}
-
-bool BlockBed::getHeadofBed( User* user, int32_t& x, int8_t y, int32_t& z )
-{
-  uint8_t block, meta;
-
-  Mineserver::get()->map(user->pos.map)->getBlock(x, y, z, &block, &meta);
-
-  switch( meta )
-  {
-  case BLOCK_BOTTOM:
-    z += 1;
-    break;
-  case BLOCK_TOP:
-    x -= 1;
-    break;
-  case BLOCK_NORTH:
-    z -= 1;
-    break;
-  case BLOCK_SOUTH:
-    x += 1;
-    break;
-  default:
-    return false; // Already is head of the bed
-  }
-  return true; // Not head of the bed
+  return false;
 }

@@ -28,6 +28,11 @@
 #ifndef _ITEMS_PROJECTILE_H
 #define _ITEMS_PROJECTILE_H
 
+#include <stdint.h>
+#include <string>
+
+#include "constants.h"
+#include "inventory.h"
 #include "itembasic.h"
 
 class ItemProjectile: public ItemBasic
@@ -36,4 +41,5 @@ public:
   bool affectedItem(int item) const;
   void onRightClick(User* user, Item* item);
 };
+
 #endif

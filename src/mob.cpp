@@ -39,6 +39,7 @@ Mob::Mob()
   map(0),
   yaw(0),
   pitch(0),
+  head_yaw(0), // TODO: actually use head_yaw
   spawned(false),
   respawnable(false),
   health(0)
@@ -64,12 +65,12 @@ void Mob::sethealth(int health)
   }
 	if (health == 0)
 	{
-		animateDamage(ENTITY_STATUS_DEAD);
+		animateDamage(ANIMATE_DEAD);
 //		deSpawnToAll();
 	}
 	else if (health < this->health)
   {
-		animateDamage(ENTITY_STATUS_HURT);
+		animateDamage(ANIMATE_HURT);
 		animateMob(ANIMATE_DAMAGE);
   }
   this->health = health;
@@ -100,9 +101,9 @@ void Mob::moveAnimal()
   x += vel.x()*0.01;
   y += vel.y()*0.01;  
   z += vel.z()*0.01;  
-  for (int i = 0; i < Mineserver::get()->users().size(); i++) {
-    User* user2 = Mineserver::get()->users()[i];
-  user2->buffer << Protocol::entityVelocity( (int32_t)UID, (int16_t)vel.x(), (int16_t)vel.y(), (int16_t)vel.z() );
+  for (int i = 0; i < ServerInstance->users().size(); i++) {
+    User* user2 = ServerInstance->users()[i];
+  user2->buffer << (int8_t)PACKET_ENTITY_VELOCITY << (int32_t)UID << (int16_t)vel.x() << (int16_t)vel.y() << (int16_t)vel.z();
   }*/
 }
 
@@ -169,7 +170,24 @@ void Mob::look(int16_t yaw, int16_t pitch)
   pitch = pitch % 360;
   int8_t y_byte = (int8_t)((yaw * 1.0) / 360.0 * 256.0);
   int8_t p_byte = (int8_t)((pitch * 1.0) / 360.0 * 256.0);
+  if(y_byte != this->yaw || p_byte != this->pitch)
+  {
+    User::sendAll(Protocol::entityLook(UID, yaw, pitch));
+  }
   this->pitch = p_byte;
   this->yaw = y_byte;
-  User::sendAll(Protocol::entityLook(UID, yaw, pitch));
+}
+
+void Mob::headLook(int16_t head_yaw)
+{
+  while(head_yaw < 0) {
+    head_yaw += 360;
+  }
+  head_yaw = head_yaw % 360;
+  int8_t h_byte = (int8_t)((head_yaw * 1.0) / 360.0 * 256.0);
+  if(h_byte != this->head_yaw)
+  {
+    User::sendAll(Protocol::entityHeadLook(UID, head_yaw));
+  }
+  this->head_yaw = h_byte;
 }

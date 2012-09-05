@@ -25,26 +25,49 @@
   SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "../mineserver.h"
-#include "../map.h"
-#include "../plugin.h"
-#include "../logger.h"
-#include "../protocol.h"
+#include <stdio.h>
+#include "mineserver.h"
+#include "map.h"
+#include "plugin.h"
+#include "logger.h"
+#include "protocol.h"
+#include "physics.h"
 
 #include "falling.h"
 
-
-void BlockFalling::onNeighbourBroken(User* user, int16_t oldblock, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+bool BlockFalling::affectedBlock(int block) const
 {
-  this->onNeighbourMove(user, oldblock, x, y, z, direction, map);
+  if (block == BLOCK_SAND || block == BLOCK_SLOW_SAND || block == BLOCK_GRAVEL)
+    return true;
+  return false;
 }
 
-bool BlockFalling::onPlace(User* user, int16_t newblock, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+std::string printfify(const char *fmt, ...)
+{
+  if(fmt)
+  {
+    va_list args;
+    char buf[4096];
+    va_start(args, fmt);
+    vsnprintf(buf, sizeof(buf), fmt, args);
+    va_end(args);
+    return buf;
+  }
+  else
+    return fmt;
+}
+
+void BlockFalling::onNeighbourBroken(User* user, int16_t, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
+{
+  this->onNeighbourMove(user, 0, x, y, z, direction, map);
+}
+
+bool BlockFalling::onPlace(User* user, int16_t newblock, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
   uint8_t oldblock;
   uint8_t oldmeta;
 
-  if (!Mineserver::get()->map(map)->getBlock(x, y, z, &oldblock, &oldmeta))
+  if (!ServerInstance->map(map)->getBlock(x, y, z, &oldblock, &oldmeta))
   {
     revertBlock(user, x, y, z, map);
     return true;
@@ -76,43 +99,40 @@ bool BlockFalling::onPlace(User* user, int16_t newblock, int32_t x, int8_t y, in
     return true;
   }
 
-  Mineserver::get()->map(map)->setBlock(x, y, z, (char)newblock, 0);
-  Mineserver::get()->map(map)->sendBlockChange(x, y, z, (char)newblock, 0);
+  ServerInstance->map(map)->setBlock(x, y, z, (char)newblock, 0);
+  ServerInstance->map(map)->sendBlockChange(x, y, z, newblock, 0);
 
   applyPhysics(user, x, y, z, map);
   return false;
 }
 
-void BlockFalling::onNeighbourMove(User* user, int16_t oldblock, int32_t x, int8_t y, int32_t z, int8_t direction, int map)
+void BlockFalling::onNeighbourMove(User* user, int16_t, int32_t x, int16_t y, int32_t z, int8_t direction, int map)
 {
   uint8_t block;
   uint8_t meta;
 
-  if(!Mineserver::get()->map(map)->getBlock(x, y, z, &block, &meta))
+  if(!ServerInstance->map(map)->getBlock(x, y, z, &block, &meta))
   	return;
-  if (block == BLOCK_SAND || block == BLOCK_SOUL_SAND ||block == BLOCK_GRAVEL)
+  if (affectedBlock(block))
   {
     applyPhysics(user, x, y, z, map);
   }
 }
 
-void BlockFalling::applyPhysics(User* user, int32_t x, int8_t y, int32_t z, int map)
+void BlockFalling::applyPhysics(User* user, int32_t x, int16_t y, int32_t z, int map)
 {
-  uint8_t fallblock, block, neighbour, testbl;
-  uint8_t fallmeta, meta, neighbourmeta, testmet;
+  uint8_t fallblock, block;
+  uint8_t fallmeta, meta;
 
-  if (!Mineserver::get()->map(map)->getBlock(x, y, z, &fallblock, &fallmeta))
+  if (!ServerInstance->map(map)->getBlock(x, y, z, &fallblock, &fallmeta))
   {
     return;
   }
 
-  // Destroy original block
-  Mineserver::get()->map(map)->sendBlockChange(x, y, z, BLOCK_AIR, 0);
-  Mineserver::get()->map(map)->setBlock(x, y, z, BLOCK_AIR, 0);
+
   
-  while (Mineserver::get()->map(map)->getBlock(x, y - 1, z, &block, &meta))
+  if (ServerInstance->map(map)->getBlock(x, y - 1, z, &block, &meta))
   {
-    unsigned int falldist = 0;
     switch (block)
     {
     case BLOCK_AIR:
@@ -120,63 +140,39 @@ void BlockFalling::applyPhysics(User* user, int32_t x, int8_t y, int32_t z, int 
     case BLOCK_STATIONARY_WATER:
     case BLOCK_LAVA:
     case BLOCK_STATIONARY_LAVA:
+    case BLOCK_SNOW:
       break;
     default:
-      if(falldist > 0) {
-        const int chunk_x = blockToChunk(x);
-        const int chunk_z = blockToChunk(z);
-	    
-        const ChunkMap::const_iterator it = Mineserver::get()->map(map)->chunks.find(Coords(blockToChunk(x), blockToChunk(z)));
-
-        if (it == Mineserver::get()->map(map)->chunks.end())
-          return;
-
-        Packet pkt = Protocol::entityRelativeMove(ENTITY_SAND, 0, 1, 0);
-
-        it->second->sendPacket(pkt);
-      }
-      // stop falling
-      Mineserver::get()->map(map)->setBlock(x, y, z, fallblock, fallmeta);
-      Mineserver::get()->map(map)->sendBlockChange(x, y, z, fallblock, fallmeta);
-      return;
+       return;
       break;
     }
 
+    // Destroy original block
+    ServerInstance->map(map)->sendBlockChange(x, y, z, BLOCK_AIR, 0);
+    ServerInstance->map(map)->setBlock(x, y, z, BLOCK_AIR, 0);
+
     y--;
-    falldist++;
-    if(falldist >= 4) {
-      const int chunk_x = blockToChunk(x);
-      const int chunk_z = blockToChunk(z);
-	    
-      const ChunkMap::const_iterator it = Mineserver::get()->map(map)->chunks.find(Coords(blockToChunk(x), blockToChunk(z)));
 
-      if (it == Mineserver::get()->map(map)->chunks.end())
-        return;
 
-      Packet pkt = Protocol::entityRelativeMove(ENTITY_SAND, 0, 1, 0);
+    //Spawn an entity for the falling block
+    const int chunk_x = blockToChunk(x);
+    const int chunk_z = blockToChunk(z);
 
-      it->second->sendPacket(pkt);
-    }
-    
-    
-    this->notifyNeighbours(x, y + 2, z, map, "onNeighbourMove", user, block, BLOCK_BOTTOM);
-    
-    if(!Mineserver::get()->map(map)->getBlock(x,y+2,z,&neighbour, &neighbourmeta))
-    	return;
-    if(!Mineserver::get()->map(map)->getBlock(x,y+1,z,&testbl, &testmet))
-    	return;
-    if(testbl == BLOCK_SAND)
-    	//LOG(INFO, "Dfsdf", "what");
-    	
-    	if(neighbour == BLOCK_SAND)
-    	   //LOG(INFO, "sdfasd", "sdgdfgsdg");
-    for(unsigned int i = 0; i < Mineserver::get()->plugin()->getBlockCB().size(); i++)
-    {
-    	if(Mineserver::get()->plugin()->getBlockCB()[i]->affectedBlock(neighbour)) {
-    		//LOG(INFO, "Penis", "toll");
-    		Mineserver::get()->plugin()->getBlockCB()[i]->onNeighbourMove(user, fallblock, x, y+2, z, 1, map);
-    	}
-    }
+    const ChunkMap::const_iterator it = ServerInstance->map(map)->chunks.find(Coords(chunk_x, chunk_z));
+
+    if (it == ServerInstance->map(map)->chunks.end())
+       return;
+
+    uint32_t EID = Mineserver::generateEID();
+    uint8_t object = 70; //type == Falling object
+    Packet pkt = Protocol::addObject(EID,object, x, y+1, z, fallblock);
+    it->second->sendPacket(pkt);
+
+    //Add to physics loop
+    ServerInstance->physics(map)->addFallSimulation(fallblock,vec(x, y, z), EID);
+
+    this->notifyNeighbours(x, y + 1, z, map, "onNeighbourMove", user, fallblock, BLOCK_BOTTOM);
+
   }
 }
 

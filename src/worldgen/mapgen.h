@@ -35,7 +35,7 @@
 #endif
 
 #include "cavegen.h"
-#include "../map.h"
+#include "map.h"
 
 class MapGen
 {
@@ -45,13 +45,13 @@ public:
   virtual void init(int seed);
   virtual void re_init(int seed); // Used when generating multiple maps
   virtual void generateChunk(int x, int z, int map);
-
 private:
   std::vector<uint8_t> blocks;
+  std::vector<uint8_t> addblocks;
   std::vector<uint8_t> blockdata;
   std::vector<uint8_t> skylight;
   std::vector<uint8_t> blocklight;
-  std::vector<uint8_t> heightmap;
+  std::vector<int32_t> heightmap;
 
   int seaLevel;
 
@@ -65,6 +65,8 @@ private:
   bool addCaves;
   bool winterEnabled;
 
+protected:
+
   virtual void generateFlatgrass(int x, int z, int map);
   virtual void generateWithNoise(int x, int z, int map);
 
@@ -73,7 +75,7 @@ private:
 
   virtual void AddOre(int x, int z, int map, uint8_t type);
   virtual void AddDeposit(int x, int y, int z, int map, uint8_t block, int minDepoSize, int maxDepoSize, sChunk* chunk);
-
+private:
   CaveGen cave;
 
   // Heightmap composition

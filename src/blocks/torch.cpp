@@ -25,46 +25,54 @@
   SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "../mineserver.h"
-#include "../map.h"
+#include "mineserver.h"
+#include "map.h"
+#include "redstoneSimulation.h"
+#include "vec.h"
 
 #include "torch.h"
 
 
-void BlockTorch::onStartedDigging(User* user, int8_t status, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+void BlockTorch::onStartedDigging(User* user, int8_t status, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
 
 }
 
-void BlockTorch::onDigging(User* user, int8_t status, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+void BlockTorch::onDigging(User* user, int8_t status, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
 
 }
 
-void BlockTorch::onStoppedDigging(User* user, int8_t status, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+void BlockTorch::onStoppedDigging(User* user, int8_t status, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
 
 }
 
-bool BlockTorch::onBroken(User* user, int8_t status, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+bool BlockTorch::onBroken(User* user, int8_t status, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
   uint8_t block, meta;
-  Mineserver::get()->map(map)->getBlock(x, y, z, &block, &meta);
+  ServerInstance->map(map)->getBlock(x, y, z, &block, &meta);
 
-  Mineserver::get()->map(map)->setBlock(x, y, z, BLOCK_AIR, 0);
-  Mineserver::get()->map(map)->sendBlockChange(x, y, z, BLOCK_AIR, 0);
+  ServerInstance->map(map)->setBlock(x, y, z, BLOCK_AIR, 0);
+  ServerInstance->map(map)->sendBlockChange(x, y, z, BLOCK_AIR, 0);
 
   this->spawnBlockItem(x, y, z, map, block, 0);
+
+  if(block == BLOCK_REDSTONE_TORCH_OFF || block == BLOCK_REDSTONE_TORCH_ON)
+  {
+    ServerInstance->redstone(map)->addSimulation(vec(x,y,z));
+  }
+
   return false;
 }
 
-void BlockTorch::onNeighbourBroken(User* user, int16_t oldblock, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+void BlockTorch::onNeighbourBroken(User* user, int16_t oldblock, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
   uint8_t block;
   uint8_t meta;
   bool destroy = false;
 
-  if (!Mineserver::get()->map(map)->getBlock(x, y, z, &block, &meta))
+  if (!ServerInstance->map(map)->getBlock(x, y, z, &block, &meta))
   {
     return;
   }
@@ -75,7 +83,7 @@ void BlockTorch::onNeighbourBroken(User* user, int16_t oldblock, int32_t x, int8
     // Crude fix for weird sign destruction
     uint8_t tempblock;
     uint8_t tempmeta;
-    if (Mineserver::get()->map(map)->getBlock(x, y, z, &tempblock, &tempmeta) && tempblock == BLOCK_WALL_SIGN)
+    if (ServerInstance->map(map)->getBlock(x, y, z, &tempblock, &tempmeta) && tempblock == BLOCK_WALL_SIGN)
     {
       destroy = false;
     }
@@ -100,18 +108,18 @@ void BlockTorch::onNeighbourBroken(User* user, int16_t oldblock, int32_t x, int8
   if (destroy)
   {
     // Break torch and spawn torch item
-    Mineserver::get()->map(map)->sendBlockChange(x, y, z, BLOCK_AIR, 0);
-    Mineserver::get()->map(map)->setBlock(x, y, z, BLOCK_AIR, 0);
+    ServerInstance->map(map)->sendBlockChange(x, y, z, BLOCK_AIR, 0);
+    ServerInstance->map(map)->setBlock(x, y, z, BLOCK_AIR, 0);
     this->spawnBlockItem(x, y, z, map, block);
   }
 }
 
-bool BlockTorch::onPlace(User* user, int16_t newblock, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+bool BlockTorch::onPlace(User* user, int16_t newblock, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
   uint8_t oldblock;
   uint8_t oldmeta;
 
-  if (!Mineserver::get()->map(map)->getBlock(x, y, z, &oldblock, &oldmeta))
+  if (!ServerInstance->map(map)->getBlock(x, y, z, &oldblock, &oldmeta))
   {
     revertBlock(user, x, y, z, map);
     return true;
@@ -156,16 +164,22 @@ bool BlockTorch::onPlace(User* user, int16_t newblock, int32_t x, int8_t y, int3
     break;
   }
 
-  Mineserver::get()->map(map)->setBlock(x, y, z, (char)newblock, direction);
-  Mineserver::get()->map(map)->sendBlockChange(x, y, z, (char)newblock, direction);
+  ServerInstance->map(map)->setBlock(x, y, z, (char)newblock, direction);
+  ServerInstance->map(map)->sendBlockChange(x, y, z, (char)newblock, direction);
+
+  if(newblock == BLOCK_REDSTONE_TORCH_OFF || newblock == BLOCK_REDSTONE_TORCH_ON)
+  {
+    ServerInstance->redstone(map)->addSimulation(vec(x,y,z));
+  }
+
   return false;
 }
 
-void BlockTorch::onNeighbourPlace(User* user, int16_t newblock, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+void BlockTorch::onNeighbourPlace(User* user, int16_t newblock, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
 }
 
-void BlockTorch::onReplace(User* user, int16_t newblock, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+void BlockTorch::onReplace(User* user, int16_t newblock, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
   uint8_t oldblock;
   uint8_t oldmeta;
@@ -175,11 +189,11 @@ void BlockTorch::onReplace(User* user, int16_t newblock, int32_t x, int8_t y, in
   case BLOCK_WATER:
   case BLOCK_STATIONARY_WATER:
   {
-    if (Mineserver::get()->map(map)->getBlock(x, y, z, &oldblock, &oldmeta))
+    if (ServerInstance->map(map)->getBlock(x, y, z, &oldblock, &oldmeta))
     {
       // spawn item
-      Mineserver::get()->map(map)->sendBlockChange(x, y, z, 0, 0);
-      Mineserver::get()->map(map)->setBlock(x, y, z, 0, 0);
+      ServerInstance->map(map)->sendBlockChange(x, y, z, 0, 0);
+      ServerInstance->map(map)->setBlock(x, y, z, 0, 0);
       this->spawnBlockItem(x, y, z, map, oldblock);
     }
   }
@@ -187,11 +201,11 @@ void BlockTorch::onReplace(User* user, int16_t newblock, int32_t x, int8_t y, in
   case BLOCK_LAVA:
   case BLOCK_STATIONARY_LAVA:
   {
-    if (Mineserver::get()->map(map)->getBlock(x, y, z, &oldblock, &oldmeta))
+    if (ServerInstance->map(map)->getBlock(x, y, z, &oldblock, &oldmeta))
     {
       // destroy
-      Mineserver::get()->map(map)->sendBlockChange(x, y, z, 0, 0);
-      Mineserver::get()->map(map)->setBlock(x, y, z, 0, 0);
+      ServerInstance->map(map)->sendBlockChange(x, y, z, 0, 0);
+      ServerInstance->map(map)->setBlock(x, y, z, 0, 0);
     }
   }
   break;
@@ -201,7 +215,7 @@ void BlockTorch::onReplace(User* user, int16_t newblock, int32_t x, int8_t y, in
   }
 }
 
-void BlockTorch::onNeighbourMove(User* user, int16_t oldblock, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+void BlockTorch::onNeighbourMove(User* user, int16_t oldblock, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
   this->onNeighbourBroken(user, oldblock, x, y, z, map, direction);
 }

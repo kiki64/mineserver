@@ -29,7 +29,6 @@
 //#include <iomanip>
 #include <limits>
 #include <ctime>
-
 #ifdef WIN32
 #define NOMINMAX
 #include <windows.h>
@@ -74,7 +73,7 @@ void initPRNG()
 
   if (!seedsuccess)
   {
-    prng_seed = std::time(NULL);
+    prng_seed = static_cast<seed_type>(std::time(NULL));
   }
 
   //std::cout << "Seeding the PRNG with: 0x" << std::hex << std::uppercase << std::setfill('0')

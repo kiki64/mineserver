@@ -47,25 +47,21 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "nethergen.h"
 #include "cavegen.h"
 
-#include "../mineserver.h"
-#include "../config.h"
-#include "../constants.h"
-#include "../logger.h"
-#include "../map.h"
-#include "../nbt.h"
-#include "../tree.h"
+#include "mineserver.h"
+#include "config.h"
+#include "constants.h"
+#include "logger.h"
+#include "map.h"
+#include "nbt.h"
+#include "tree.h"
 
-#include "../tools.h"
-#include "../random.h"
+#include "tools.h"
+#include "random.h"
 
 int neth_seed;
 
 NetherGen::NetherGen()
-  : netherblocks(16 * 16 * 128, 0),
-    blockdata(16 * 16 * 128 / 2, 0),
-    skylight(16 * 16 * 128 / 2, 0),
-    blocklight(16 * 16 * 128 / 2, 0),
-    heightmap(16 * 16, 0)
+  : heightmap(16 * 16, 0)
 {
 }
 
@@ -86,13 +82,13 @@ void NetherGen::init(int seed)
   Randomciel.SetFrequency(1.0 / 180.0);
   Randomciel.SetLacunarity(2.0);
 
-  seaLevel = Mineserver::get()->config()->iData("mapgen.sea.level");
-  addTrees = false;//Mineserver::get()->config()->bData("mapgen.trees.enabled");
-  expandBeaches = false;//Mineserver::get()->config()->bData("mapgen.beaches.expand");
-  beachExtent = false;//Mineserver::get()->config()->iData("mapgen.beaches.extent");
-  beachHeight = false;//Mineserver::get()->config()->iData("mapgen.beaches.height");
+  seaLevel = ServerInstance->config()->iData("mapgen.sea.level");
+  addTrees = false;//ServerInstance->config()->bData("mapgen.trees.enabled");
+  expandBeaches = false;//ServerInstance->config()->bData("mapgen.beaches.expand");
+  beachExtent = false;//ServerInstance->config()->iData("mapgen.beaches.extent");
+  beachHeight = false;//ServerInstance->config()->iData("mapgen.beaches.height");
 
-  addOre = true;//Mineserver::get()->config()->bData("mapgen.caves.ore");
+  addOre = true;//ServerInstance->config()->bData("mapgen.caves.ore");
 }
 
 void NetherGen::re_init(int seed)
@@ -105,12 +101,8 @@ void NetherGen::generateChunk(int x, int z, int map)
   NBT_Value* main = new NBT_Value(NBT_Value::TAG_COMPOUND);
   NBT_Value* val = new NBT_Value(NBT_Value::TAG_COMPOUND);
 
-  generateWithNoise(x, z, map);
+  val->Insert("Sections", new NBT_Value(NBT_Value::TAG_LIST, NBT_Value::TAG_COMPOUND)); 
 
-  val->Insert("Blocks", new NBT_Value(netherblocks));
-  val->Insert("Data", new NBT_Value(blockdata));
-  val->Insert("SkyLight", new NBT_Value(skylight));
-  val->Insert("BlockLight", new NBT_Value(blocklight));
   val->Insert("HeightMap", new NBT_Value(heightmap));
   val->Insert("Entities", new NBT_Value(NBT_Value::TAG_LIST, NBT_Value::TAG_COMPOUND));
   val->Insert("TileEntities", new NBT_Value(NBT_Value::TAG_LIST, NBT_Value::TAG_COMPOUND));
@@ -122,36 +114,39 @@ void NetherGen::generateChunk(int x, int z, int map)
   main->Insert("Level", val);
 
   /*  uint32_t chunkid;
-  Mineserver::get()->map()->posToId(x, z, &chunkid);
+  ServerInstance->map()->posToId(x, z, &chunkid);
 
-  Mineserver::get()->map()->maps[chunkid].x = x;
-  Mineserver::get()->map()->maps[chunkid].z = z; */
-
-  std::vector<uint8_t> *t_blocks = (*val)["Blocks"]->GetByteArray();
-  std::vector<uint8_t> *t_data = (*val)["Data"]->GetByteArray();
-  std::vector<uint8_t> *t_blocklight = (*val)["BlockLight"]->GetByteArray();
-  std::vector<uint8_t> *t_skylight = (*val)["SkyLight"]->GetByteArray();
-  std::vector<uint8_t> *heightmap = (*val)["HeightMap"]->GetByteArray();
+  ServerInstance->map()->maps[chunkid].x = x;
+  ServerInstance->map()->maps[chunkid].z = z; */
 
   sChunk* chunk = new sChunk();
-  chunk->blocks = &((*t_blocks)[0]);
-  chunk->data = &((*t_data)[0]);
-  chunk->blocklight = &((*t_blocklight)[0]);
-  chunk->skylight = &((*t_skylight)[0]);
-  chunk->heightmap = &((*heightmap)[0]);
+  //chunk->blocks = &((*t_blocks)[0]);
+  //chunk->data = &((*t_data)[0]);
+  //chunk->blocklight = &((*t_blocklight)[0]);
+  //chunk->skylight = &((*t_skylight)[0]);
+  chunk->heightmap = &(heightmap[0]);
   chunk->nbt = main;
   chunk->x = x;
   chunk->z = z;
 
-  Mineserver::get()->map(map)->chunks.insert(ChunkMap::value_type(ChunkMap::key_type(x, z), chunk));
+  ServerInstance->map(map)->chunks.insert(ChunkMap::value_type(ChunkMap::key_type(x, z), chunk));
+
+  memset(chunk->blocks, 0, 16*16*256);
+  memset(chunk->addblocks, 0, 16*16*256/2);
+  memset(chunk->data, 0, 16*16*256/2);
+  memset(chunk->blocklight, 0, 16*16*256/2);
+  memset(chunk->skylight, 0, 16*16*256/2);
+  chunk->chunks_present = 0xffff;
+
+  generateWithNoise(x, z, map);
 
   // Update last used time
-  //Mineserver::get()->map()->mapLastused[chunkid] = (int)time(0);
+  //ServerInstance->map()->mapLastused[chunkid] = (int)time(0);
 
   // Not changed
-  //Mineserver::get()->map()->mapChanged[chunkid] = Mineserver::get()->config()->bData("save_unchanged_chunks");
+  //ServerInstance->map()->mapChanged[chunkid] = ServerInstance->config()->bData("save_unchanged_chunks");
 
-  //Mineserver::get()->map()->maps[chunkid].nbt = main;
+  //ServerInstance->map()->maps[chunkid].nbt = main;
 
   if (addOre)
   {
@@ -194,7 +189,7 @@ void NetherGen::AddTrees(int x, int z, int map, uint16_t count)
     blockX += xBlockpos;
     blockZ += zBlockpos;
 
-    Mineserver::get()->map(map)->getBlock(blockX, blockY, blockZ, &block, &meta);
+    ServerInstance->map(map)->getBlock(blockX, blockY, blockZ, &block, &meta);
     // No trees on water
     if (block == BLOCK_WATER || block == BLOCK_STATIONARY_WATER)
     {
@@ -217,13 +212,13 @@ void NetherGen::generateWithNoise(int x, int z, int map)
   gettimeofday(&start, NULL);
 #endif
 #endif
+  sChunk* chunk = ServerInstance->map(map)->getChunk(x, z);
 
   // Populate blocks in chunk
   int32_t currentHeight;
   int32_t ymax;
   uint16_t ciel;
   uint8_t* curBlock;
-  netherblocks.assign(16 * 16 * 128, 0);
 
   double xBlockpos = x << 4;
   double zBlockpos = z << 4;
@@ -245,7 +240,8 @@ void NetherGen::generateWithNoise(int x, int z, int map)
 
       for (int bY = 0; bY < 128; bY++)
       {
-        curBlock = &netherblocks[bYbX++];
+        int index = bX + (bZ << 4) + (bY << 8);
+        curBlock = &(chunk->blocks[index]);
         if (bY >= 126)
         {
           *curBlock = BLOCK_BEDROCK;
@@ -309,10 +305,10 @@ void NetherGen::generateWithNoise(int x, int z, int map)
 #ifdef PRINT_MAPGEN_TIME
 #ifdef WIN32
   t_end = timeGetTime();
-  Mineserver::get()->logger()->log("Mapgen: " + dtos(t_end - t_begin) + "ms");
+  ServerInstance->logger()->log("Mapgen: " + dtos(t_end - t_begin) + "ms");
 #else
   gettimeofday(&end, NULL);
-  Mineserver::get()->logger()->log("Mapgen: " + dtos(end.tv_usec - start.tv_usec));
+  ServerInstance->logger()->log("Mapgen: " + dtos(end.tv_usec - start.tv_usec));
 #endif
 #endif
 }
@@ -361,7 +357,7 @@ void NetherGen::ExpandBeaches(int x, int z, int map)
               continue;
             }
 
-            Mineserver::get()->map(map)->getBlock(xBlockpos + xx, hh, zBlockpos + zz, &block, &meta);
+            ServerInstance->map(map)->getBlock(xBlockpos + xx, hh, zBlockpos + zz, &block, &meta);
             if (block == BLOCK_WATER || block == BLOCK_STATIONARY_WATER)
             {
               found = true;
@@ -372,15 +368,15 @@ void NetherGen::ExpandBeaches(int x, int z, int map)
       }
       if (found)
       {
-        Mineserver::get()->map(map)->sendBlockChange(blockX, h, blockZ, BLOCK_SAND, 0);
-        Mineserver::get()->map(map)->setBlock(blockX, h, blockZ, BLOCK_SAND, 0);
+        ServerInstance->map(map)->sendBlockChange(blockX, h, blockZ, BLOCK_SAND, 0);
+        ServerInstance->map(map)->setBlock(blockX, h, blockZ, BLOCK_SAND, 0);
 
-        Mineserver::get()->map(map)->getBlock(blockX, h - 1, blockZ, &block, &meta);
+        ServerInstance->map(map)->getBlock(blockX, h - 1, blockZ, &block, &meta);
 
         if (h > 0 && block == BLOCK_DIRT)
         {
-          Mineserver::get()->map(map)->sendBlockChange(blockX, h - 1, blockZ, BLOCK_SAND, 0);
-          Mineserver::get()->map(map)->setBlock(blockX, h - 1, blockZ, BLOCK_SAND, 0);
+          ServerInstance->map(map)->sendBlockChange(blockX, h - 1, blockZ, BLOCK_SAND, 0);
+          ServerInstance->map(map)->setBlock(blockX, h - 1, blockZ, BLOCK_SAND, 0);
         }
       }
     }
@@ -433,7 +429,7 @@ void NetherGen::AddOre(int x, int z, int map, uint8_t type)
 
     i++;
 
-    Mineserver::get()->map(map)->getBlock(blockX, blockY, blockZ, &block, &meta);
+    ServerInstance->map(map)->getBlock(blockX, blockY, blockZ, &block, &meta);
     // No ore in caves
     if (block != BLOCK_NETHERRACK)
     {
@@ -455,8 +451,8 @@ void NetherGen::AddDeposit(int x, int y, int z, int map, uint8_t block, int depo
       {
         if (uniform01() < 0.5)
         {
-          Mineserver::get()->map(map)->sendBlockChange(bX, bY, bZ, block, 0);
-          Mineserver::get()->map(map)->setBlock(bX, bY, bZ, block, 0);
+          ServerInstance->map(map)->sendBlockChange(bX, bY, bZ, block, 0);
+          ServerInstance->map(map)->setBlock(bX, bY, bZ, block, 0);
         }
       }
     }

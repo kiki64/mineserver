@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2011, The Mineserver Project
+  Copyright (c) 2012, The Mineserver Project
   All rights reserved.
 
   Redistribution and use in source and binary forms, with or without
@@ -88,9 +88,19 @@ NBT_Value::NBT_Value(uint8_t* buf, int32_t len) : m_type(TAG_BYTE_ARRAY)
   m_value.byteArrayVal = new std::vector<uint8_t>(buf, buf + len);
 }
 
+NBT_Value::NBT_Value(int32_t* buf, int32_t len) : m_type(TAG_INT_ARRAY)
+{
+  m_value.intArrayVal = new std::vector<int32_t>(buf, buf + len);
+}
+
 NBT_Value::NBT_Value(std::vector<uint8_t> const& bytes) : m_type(TAG_BYTE_ARRAY)
 {
   m_value.byteArrayVal = new std::vector<uint8_t>(bytes);
+}
+
+NBT_Value::NBT_Value(std::vector<int32_t> const& bytes) : m_type(TAG_INT_ARRAY)
+{
+  m_value.intArrayVal = new std::vector<int32_t>(bytes);
 }
 
 NBT_Value::NBT_Value(const std::string& str) : m_type(TAG_STRING)
@@ -162,6 +172,24 @@ NBT_Value::NBT_Value(eTAG_Type type, uint8_t** buf, int& remaining) : m_type(typ
         m_value.byteArrayVal = new std::vector<uint8_t>();
         m_value.byteArrayVal->assign(*buf, (*buf) + bufLen);
         *buf += bufLen;
+      }
+    }
+    break;
+  case TAG_INT_ARRAY:
+    remaining -= 4;
+    if (remaining >= 0)
+    {
+      int32_t bufLen = getSint32(*buf);
+      remaining -= bufLen;
+      *buf += 4;
+      if (remaining >= 0)
+      {
+        m_value.intArrayVal = new std::vector<int32_t>();
+        for(int i = 0; i < bufLen; i++)
+        {
+          m_value.intArrayVal->push_back(getSint32((*buf+i*4)));
+        }
+        *buf += 4*bufLen;
       }
     }
     break;
@@ -417,6 +445,19 @@ std::vector<uint8_t> *NBT_Value::GetByteArray()
   return m_value.byteArrayVal;
 }
 
+std::vector<int32_t> *NBT_Value::GetIntArray()
+{
+  if (m_type != TAG_INT_ARRAY)
+  {
+    return NULL;
+  }
+  if (m_value.intArrayVal == NULL)
+  {
+    m_value.intArrayVal = new std::vector<int32_t>();
+  }
+  return m_value.intArrayVal;
+}
+
 
 std::string* NBT_Value::GetString()
 {
@@ -479,6 +520,10 @@ void NBT_Value::cleanup()
   if (m_type == TAG_BYTE_ARRAY)
   {
     delete m_value.byteArrayVal;
+  }
+  if (m_type == TAG_INT_ARRAY)
+  {
+    delete m_value.intArrayVal;
   }
   if (m_type == TAG_LIST)
   {
@@ -690,6 +735,19 @@ void NBT_Value::Write(std::vector<uint8_t> &buffer)
     }
     break;
   }
+  case TAG_INT_ARRAY:
+  {
+    int arraySize = m_value.intArrayVal ? m_value.intArrayVal->size() : 0;
+    buffer.resize(storeAt + 4 + arraySize*4);
+    putSint32(&buffer[storeAt], arraySize);
+    storeAt += 4;
+    for(int i = 0; i < arraySize; i++)
+    {
+      putSint32(&buffer[storeAt+i*4], (*m_value.intArrayVal)[i]);
+    }
+    storeAt += 4*arraySize;
+    break;
+  }
   case TAG_STRING:
   {
     int stringLen = m_value.stringVal ? m_value.stringVal->size() : 0;
@@ -761,19 +819,19 @@ void NBT_Value::Dump(std::string& data, const std::string& name, int tabs)
     data += tabPrefix + "TAG_End(\"" + name + "\")\n";
     break;
   case TAG_BYTE:
-    data += tabPrefix + "TAG_Byte(\"" + name + "\"): " + dtos((int)m_value.byteVal) + "\n";
+    data += tabPrefix + "TAG_Byte(\"" + name + "\"): " + dtos(double(int(m_value.byteVal))) + "\n";
     break;
   case TAG_SHORT:
-    data += tabPrefix + "TAG_Short(\"" + name + "\"): " + dtos(m_value.shortVal) + "\n";
+    data += tabPrefix + "TAG_Short(\"" + name + "\"): " + dtos(double(m_value.shortVal)) + "\n";
     break;
   case TAG_INT:
-    data += tabPrefix + "TAG_Int(\"" + name + "\"): " + dtos(m_value.intVal) + "\n";
+    data += tabPrefix + "TAG_Int(\"" + name + "\"): " + dtos(double(m_value.intVal)) + "\n";
     break;
   case TAG_LONG:
-    data += tabPrefix + "TAG_Long(\"" + name + "\"): " + dtos(m_value.longVal) + "\n";
+    data += tabPrefix + "TAG_Long(\"" + name + "\"): " + dtos(double(m_value.longVal)) + "\n";
     break;
   case TAG_FLOAT:
-    data += tabPrefix + "TAG_Float(\"" + name + "\"): " + dtos(m_value.floatVal) + "\n";
+    data += tabPrefix + "TAG_Float(\"" + name + "\"): " + dtos(double(m_value.floatVal)) + "\n";
     break;
   case TAG_DOUBLE:
     data += tabPrefix + "TAG_Double(\"" + name + "\"): " + dtos(m_value.doubleVal) + "\n";
@@ -783,6 +841,17 @@ void NBT_Value::Dump(std::string& data, const std::string& name, int tabs)
     if (m_value.byteArrayVal != NULL)
     {
       data += tabPrefix + dtos(m_value.byteArrayVal->size()) + " bytes\n";
+    }
+    else
+    {
+      data += tabPrefix + "0 bytes\n";
+    }
+    break;
+  case TAG_INT_ARRAY:
+    data += tabPrefix + "TAG_Int_Array(\"" + name + "\"): \n";
+    if (m_value.intArrayVal != NULL)
+    {
+      data += tabPrefix + dtos(m_value.intArrayVal->size()) + " bytes\n";
     }
     else
     {

@@ -32,7 +32,7 @@
 #include <map>
 #include <list>
 
-#include "../tr1.h"
+#include "tr1.h"
 #include TR1INCLUDE(memory)
 
 #include <stdint.h>
@@ -59,17 +59,17 @@ public:
 
   inline int iData() const
   {
-    return m_type == CONFIG_NODE_NUMBER ? m_nData : 0;
+    return m_type == CONFIG_NODE_NUMBER ? (int)m_nData : 0;
   }
 
   inline int64_t lData() const
   {
-    return m_type == CONFIG_NODE_NUMBER ? m_nData : 0;
+    return m_type == CONFIG_NODE_NUMBER ? (int64_t)m_nData : 0;
   }
 
   inline float fData() const
   {
-    return m_type == CONFIG_NODE_NUMBER ? m_nData : 0;
+    return m_type == CONFIG_NODE_NUMBER ? (float)m_nData : 0;
   }
 
   inline double dData() const
@@ -97,19 +97,19 @@ public:
   inline void setData(int64_t data)
   {
     m_type = CONFIG_NODE_NUMBER;
-    m_nData = data;
+    m_nData = double(data);
   }
 
   inline void setData(float data)
   {
     m_type = CONFIG_NODE_NUMBER;
-    m_nData = data;
+    m_nData = double(data);
   }
 
   inline void setData(double data)
   {
     m_type = CONFIG_NODE_NUMBER;
-    m_nData = data;
+    m_nData = double(data);
   }
 
   inline void setData(const std::string& data)

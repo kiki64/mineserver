@@ -25,19 +25,19 @@
   SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "../mineserver.h"
-#include "../map.h"
-#include "../packets.h"
+#include "mineserver.h"
+#include "map.h"
+#include "packets.h"
 
 #include "cake.h"
 
 
-bool BlockCake::onPlace(User* user, int16_t newblock, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+bool BlockCake::onPlace(User* user, int16_t newblock, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
   uint8_t oldblock;
   uint8_t oldmeta;
 
-  if (!Mineserver::get()->map(map)->getBlock(x, y, z, &oldblock, &oldmeta))
+  if (!ServerInstance->map(map)->getBlock(x, y, z, &oldblock, &oldmeta))
   {
     revertBlock(user, x, y, z, map);
     return true;
@@ -69,16 +69,16 @@ bool BlockCake::onPlace(User* user, int16_t newblock, int32_t x, int8_t y, int32
     return true;
   }
 
-  Mineserver::get()->map(map)->setBlock(x, y, z, BLOCK_CAKE, 0);
-  Mineserver::get()->map(map)->sendBlockChange(x, y, z, BLOCK_CAKE, 0);
+  ServerInstance->map(map)->setBlock(x, y, z, BLOCK_CAKE, 0);
+  ServerInstance->map(map)->sendBlockChange(x, y, z, BLOCK_CAKE, 0);
   return false;
 }
 
-bool BlockCake::onInteract(User* user, int32_t x, int8_t y, int32_t z, int map)
+bool BlockCake::onInteract(User* user, int32_t x, int16_t y, int32_t z, int map)
 {
   uint8_t block;
   uint8_t metadata;
-  Mineserver::get()->map(map)->getBlock(x, y, z, &block, &metadata);
+  ServerInstance->map(map)->getBlock(x, y, z, &block, &metadata);
   metadata = metadata + 1;
   int healammount = 3;
   int newhealth = user->health + healammount;
@@ -90,8 +90,8 @@ bool BlockCake::onInteract(User* user, int32_t x, int8_t y, int32_t z, int map)
       newhealth = 20;
     }
     user->sethealth(newhealth);
-    Mineserver::get()->map(map)->setBlock(x, y, z, block, metadata);
-    Mineserver::get()->map(map)->sendBlockChange(x, y, z, (char)block, metadata);
+    ServerInstance->map(map)->setBlock(x, y, z, block, metadata);
+    ServerInstance->map(map)->sendBlockChange(x, y, z, (char)block, metadata);
   }
   else
   {
@@ -100,30 +100,30 @@ bool BlockCake::onInteract(User* user, int32_t x, int8_t y, int32_t z, int map)
       newhealth = 20;
     }
     user->sethealth(newhealth);
-    Mineserver::get()->map(map)->setBlock(x, y, z, BLOCK_AIR, 0);
-    Mineserver::get()->map(map)->sendBlockChange(x, y, z, BLOCK_AIR, 0);
+    ServerInstance->map(map)->setBlock(x, y, z, BLOCK_AIR, 0);
+    ServerInstance->map(map)->sendBlockChange(x, y, z, BLOCK_AIR, 0);
   }
   return false;
 }
-void BlockCake::onStartedDigging(User* user, int8_t status, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+void BlockCake::onStartedDigging(User* user, int8_t status, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
 }
 
-void BlockCake::onDigging(User* user, int8_t status, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+void BlockCake::onDigging(User* user, int8_t status, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
 }
 
-bool BlockCake::onBroken(User* user, int8_t status, int32_t x, int8_t y, int32_t z, int map,  int8_t direction)
+bool BlockCake::onBroken(User* user, int8_t status, int32_t x, int16_t y, int32_t z, int map,  int8_t direction)
 {
   uint8_t block;
   uint8_t meta;
 
-  if (!Mineserver::get()->map(map)->getBlock(x, y, z, &block, &meta))
+  if (!ServerInstance->map(map)->getBlock(x, y, z, &block, &meta))
   {
     return true;
   }
 
-  Mineserver::get()->map(map)->sendBlockChange(x, y, z, BLOCK_AIR, 0);
-  Mineserver::get()->map(map)->setBlock(x, y, z, BLOCK_AIR, 0);
+  ServerInstance->map(map)->sendBlockChange(x, y, z, BLOCK_AIR, 0);
+  ServerInstance->map(map)->setBlock(x, y, z, BLOCK_AIR, 0);
   return false;
 }

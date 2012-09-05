@@ -12,23 +12,37 @@
  */
 
 #include <cmath>
+#include <algorithm>
 #include "leaves.h"
-#include "../map.h"
-#include "../mineserver.h"
-#include "../constants.h"
-#include "../plugin.h"
+#include "map.h"
+#include "mineserver.h"
+#include "constants.h"
+#include "plugin.h"
 
 
-bool BlockLeaves::onBroken(User* user, int8_t status, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+bool BlockLeaves::onBroken(User* user, int8_t status, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
   std::set<Decay>::iterator it = std::find_if(decaying.begin(), decaying.end(), DecayFinder(x,y,z,map));
 
   if (it != decaying.end()) decaying.erase(it);
 
+  uint8_t block;
+  uint8_t meta;
+
+  if (!ServerInstance->map(map)->getBlock(x, y, z, &block, &meta))
+  {
+    revertBlock(user, x, y, z, map);
+    return true;
+  }
+
+  ServerInstance->map(map)->sendBlockChange(x, y, z, BLOCK_AIR, 0);
+  ServerInstance->map(map)->setBlock(x, y, z, BLOCK_AIR, 0);
+  this->spawnBlockItem(x, y, z, map, block, meta);
+
   return true;
 }
 
-void BlockLeaves::onNeighbourBroken(User* user, int16_t oldblock, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+void BlockLeaves::onNeighbourBroken(User* user, int16_t oldblock, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
   if ( (oldblock != BLOCK_WOOD && oldblock != BLOCK_LEAVES)   ||
        std::find_if(decaying.begin(), decaying.end(), DecayFinder(x,y,z,map)) != decaying.end() )
@@ -43,7 +57,7 @@ void BlockLeaves::onNeighbourBroken(User* user, int16_t oldblock, int32_t x, int
         {
           uint8_t block, meta;
 
-          Mineserver::get()->map(map)->getBlock(x + xi, y + yi, z + zi, &block, &meta);
+          ServerInstance->map(map)->getBlock(x + xi, y + yi, z + zi, &block, &meta);
 
           if (block == BLOCK_WOOD) return;
         }
@@ -54,7 +68,7 @@ void BlockLeaves::onNeighbourBroken(User* user, int16_t oldblock, int32_t x, int
 inline void decayIt(const Decay & decaying)
 {
   uint8_t block, meta;
-  const Plugin::BlockCBs & plugins =  Mineserver::get()->plugin()->getBlockCB();
+  const Plugin::BlockCBs & plugins =  ServerInstance->plugin()->getBlockCB();
 
   //this->notifyNeighbours(decaying[0].x,decaying[0].y,decaying[0].z,decaying[0].map,"onNeighbourBroken",0,BLOCK_LEAVES,0); // <--- USE THIS WHEN IT's FIXED
 
@@ -64,7 +78,7 @@ inline void decayIt(const Decay & decaying)
     {
       for (int zoff = -1; zoff <= 1; ++zoff)
       {
-        Mineserver::get()->map(decaying.map)->getBlock(decaying.x + xoff, decaying.y + yoff, decaying.z + zoff, &block, &meta);
+        ServerInstance->map(decaying.map)->getBlock(decaying.x + xoff, decaying.y + yoff, decaying.z + zoff, &block, &meta);
 
         for (Plugin::BlockCBs::const_iterator i = plugins.begin(); i != plugins.end(); ++i)
         {

@@ -31,6 +31,8 @@
 #include "constants.h"
 #include "mineserver.h"
 #include "map.h"
+#include "protocol.h"
+#include "vec.h"
 
 namespace
 {
@@ -57,9 +59,233 @@ inline bool mayFallThrough(int id)
 
 }
 
+enum
+{
+  FLAT_NS = 0,
+  FLAT_EW,
+  ASCEND_W,
+  ASCEND_E,
+  ASCEND_S,
+  ASCEND_N,
+  CORNER_SE,
+  CORNER_SW,
+  CORNER_NW,
+  CORNER_NE
+};
+
+//Minecart physics loop
+bool Physics::updateMinecart()
+{
+  std::vector<MinecartData> &minecarts = ServerInstance->map(map)->minecarts;
+  uint32_t listSize = minecarts.size();
+
+  for (int32_t simIt = 0; simIt < listSize; simIt++)
+  {
+    //Check if the cart is suppose to move
+    if(minecarts[simIt].speed.x() != 0 ||
+       minecarts[simIt].speed.y() != 0 ||
+       minecarts[simIt].speed.z() != 0)
+    {      
+      uint64_t timeNow = microTime();
+      double timeDiff = (timeNow-minecarts[simIt].timestamp*1.0)/1000000.0; //s
+      minecarts[simIt].timestamp = timeNow;
+
+      vec diff = vec(int8_t(float(minecarts[simIt].speed.x())*(timeDiff)),
+                     int8_t(float(minecarts[simIt].speed.y())*(timeDiff)),
+                     int8_t(float(minecarts[simIt].speed.z())*(timeDiff)) );
+      minecarts[simIt].pos = vec(minecarts[simIt].pos.x()+diff.x(),
+                                 minecarts[simIt].pos.y()+diff.y(),
+                                 minecarts[simIt].pos.z()+diff.z());
+
+
+
+      vec blockPos = vec((int)(minecarts[simIt].pos.x()/32),
+                          (int)(minecarts[simIt].pos.y()/32),
+                          (int)(minecarts[simIt].pos.z()/32)); 
+      uint8_t block, meta;
+      ServerInstance->map(map)->getBlock(blockPos.x(),
+                                         blockPos.y(),
+                                         blockPos.z(),
+                                         &block, &meta);
+      bool changed = false;
+      if(block == BLOCK_AIR)
+      {
+        minecarts[simIt].pos.y() -= 32;
+        changed = true;
+      }
+      else if((minecarts[simIt].lastBlock.x() != blockPos.x() ||
+               minecarts[simIt].lastBlock.y() != blockPos.y() ||
+               minecarts[simIt].lastBlock.z() != blockPos.z()) &&
+              block == BLOCK_MINECART_TRACKS)
+      {
+        minecarts[simIt].lastBlock = blockPos;
+        if((meta == FLAT_NS && minecarts[simIt].speed.x() != 0)
+           || (meta == FLAT_EW && minecarts[simIt].speed.z() != 0))
+        {
+
+        }
+        else
+        {
+          //z = north
+          //-x = east
+
+          //Going west
+          if(minecarts[simIt].speed.x() > 0 && meta == CORNER_NW)
+          {
+            minecarts[simIt].speed.z() = -minecarts[simIt].speed.x();
+            minecarts[simIt].speed.x() = 0;
+            changed = true;
+          }
+          //Going west
+          else if(minecarts[simIt].speed.x() > 0 && meta == CORNER_SW)
+          {
+            minecarts[simIt].speed.z() = minecarts[simIt].speed.x();
+            minecarts[simIt].speed.x() = 0;
+            changed = true;
+          }
+          //Going east
+          else if(minecarts[simIt].speed.x() < 0 && meta == CORNER_NE)
+          {
+            minecarts[simIt].speed.z() = minecarts[simIt].speed.x();
+            minecarts[simIt].speed.x() = 0;
+            changed = true;
+          }
+          //Going east
+          else if(minecarts[simIt].speed.x() < 0 && meta == CORNER_SE)
+          {
+            minecarts[simIt].speed.z() = -minecarts[simIt].speed.x();
+            minecarts[simIt].speed.x() = 0;
+            changed = true;
+          }
+          //Going north
+          else if(minecarts[simIt].speed.z() > 0 && meta == CORNER_NW)
+          {
+            minecarts[simIt].speed.x() = -minecarts[simIt].speed.z();
+            minecarts[simIt].speed.z() = 0;
+            changed = true;
+          }
+          //Going north
+          else if(minecarts[simIt].speed.z() > 0 && meta == CORNER_NE)
+          {
+            minecarts[simIt].speed.x() = minecarts[simIt].speed.z();
+            minecarts[simIt].speed.z() = 0;
+            changed = true;            
+          }
+          //Going south
+          else if(minecarts[simIt].speed.z() < 0 && meta == CORNER_SE)
+          {
+            minecarts[simIt].speed.x() = -minecarts[simIt].speed.z();
+            minecarts[simIt].speed.z() = 0;
+            changed = true;            
+          }
+          //Going south
+          else if(minecarts[simIt].speed.z() < 0 && meta == CORNER_SW)
+          {
+            minecarts[simIt].speed.x() = minecarts[simIt].speed.z();
+            minecarts[simIt].speed.z() = 0;
+            changed = true;            
+          }
+        }
+      }
+      else
+      {
+        //minecarts[simIt].pos.y() += 32;
+        //changed = true;
+      }
+
+      //Signal clients about the new pos
+      Packet pkt;
+      if(changed)
+      {
+        minecarts[simIt].pos.x() = blockPos.x()*32;
+        minecarts[simIt].pos.y() = blockPos.y()*32;
+        minecarts[simIt].pos.z() = blockPos.z()*32;
+        pkt = Protocol::entityTeleport(minecarts[simIt].EID,
+                                       (minecarts[simIt].pos.x()+16.0)/32.0,
+                                       (minecarts[simIt].pos.y()+16.0)/32.0,
+                                       (minecarts[simIt].pos.z()+16.0)/32.0, 0, 0);
+      }
+      else
+      {
+        pkt = Protocol::entityRelativeMove(minecarts[simIt].EID,(int8_t)diff.x(),(int8_t)diff.y(),(int8_t)diff.z());
+
+      }
+      User::sendAll(pkt);
+    }
+  }
+  return true;
+}
+
+//Falling physics loop
+bool Physics::updateFall()
+{
+
+  uint32_t listSize = fallSimList.size();
+
+  for (int32_t simIt = listSize-1; simIt >= 0; simIt--)
+  {
+    Falling& f = fallSimList[simIt];
+
+    double timeInSec = (microTime()-f.startTime)/1000000.0;
+    f.ticks++;
+
+    const double gravity = 9.81;
+    double offset = 0.5*gravity*timeInSec*timeInSec;
+    int blockOffset = f.pos.y() - f.lastY;
+    if(blockOffset != (int)offset) ///  not necessary, doesn't optimize much
+    {
+      int yStart = f.pos.y();
+      int x = f.pos.x(); int z = f.pos.z();
+
+      int ypos = f.lastY;
+
+      f.lastY = yStart-(int)offset;
+      for(; ypos >= f.lastY;ypos--)
+      {
+        uint8_t block, meta;
+        ServerInstance->map(map)->getBlock(x,ypos,z, &block, &meta);
+        switch (block)
+        {
+        case BLOCK_AIR:
+        case BLOCK_WATER:
+        case BLOCK_STATIONARY_WATER:
+        case BLOCK_LAVA:
+        case BLOCK_STATIONARY_LAVA:
+        case BLOCK_SNOW:
+          break;
+          //If we hit ground
+        default:
+          {
+            ServerInstance->map(map)->setBlock(x, ++ypos, z, f.block, 0);
+            ServerInstance->map(map)->sendBlockChange(x, ypos, z, f.block, 0);
+            
+            //Despawn entity
+            Packet pkt = Protocol::destroyEntity(f.EID);
+            const int chunk_x = blockToChunk(x);
+            const int chunk_z = blockToChunk(z);
+            const ChunkMap::const_iterator it = ServerInstance->map(map)->chunks.find(Coords(chunk_x, chunk_z));
+            if (it != ServerInstance->map(map)->chunks.end())
+            {               
+              it->second->sendPacket(pkt);
+            }
+            //Erase from the simulation list
+            fallSimList.erase(fallSimList.begin()+simIt);
+            goto breakout;
+          }
+        }
+      }
+    }
+breakout:
+    continue;
+  }
+  return true;
+}
+
 // Physics loop
 bool Physics::update()
 {
+  updateFall();
+  updateMinecart();
   if (!enabled)
   {
     return true;
@@ -86,7 +312,7 @@ bool Physics::update()
     vec pos = simList[simIt].blocks[0].pos;
     // Blocks
     uint8_t block, meta;
-    Mineserver::get()->map(map)->getBlock(pos, &block, &meta);
+    ServerInstance->map(map)->getBlock(pos, &block, &meta);
     simList[simIt].blocks[0].id   = block;
     simList[simIt].blocks[0].meta = meta;
 
@@ -119,8 +345,8 @@ bool Physics::update()
         break;
       }
       uint8_t newblock, newmeta;
-      Mineserver::get()->map(map)->getBlock(pos, &block, &meta);
-      Mineserver::get()->map(map)->getBlock(local, &newblock, &newmeta);
+      ServerInstance->map(map)->getBlock(pos, &block, &meta);
+      ServerInstance->map(map)->getBlock(local, &newblock, &newmeta);
       if (!isLiquidBlock(block))
       {
         toRem.push_back(pos);
@@ -130,9 +356,9 @@ bool Physics::update()
       {
         if (falling && !isLiquidBlock(newblock))
         {
-          Mineserver::get()->map(map)->setBlock(local, block, meta);
+          ServerInstance->map(map)->setBlock(local, block, meta);
           changed.insert(local);
-          Mineserver::get()->map(map)->setBlock(pos, BLOCK_AIR, 0);
+          ServerInstance->map(map)->setBlock(pos, BLOCK_AIR, 0);
           changed.insert(pos);
           toRem.push_back(pos);
           toAdd.push_back(local);
@@ -165,16 +391,16 @@ bool Physics::update()
           }
           if ((isWaterBlock(block) && a_meta < 8) || (isLavaBlock(block) && a_meta < 4))
           {
-            Mineserver::get()->map(map)->setBlock(pos, block, a_meta);
+            ServerInstance->map(map)->setBlock(pos, block, a_meta);
 
             changed.insert(pos);
           }
           else
           {
-            Mineserver::get()->map(map)->setBlock(pos, BLOCK_AIR, 0);
+            ServerInstance->map(map)->setBlock(pos, BLOCK_AIR, 0);
             changed.insert(pos);
           }
-          Mineserver::get()->map(map)->setBlock(local, block, a_newmeta);
+          ServerInstance->map(map)->setBlock(local, block, a_newmeta);
           used = true;
           toAdd.push_back(local);
           toAdd.push_back(pos);
@@ -194,17 +420,17 @@ bool Physics::update()
           }
           // We are spreading onto dry area.
           newmeta = 7;
-          Mineserver::get()->map(map)->setBlock(local, block, newmeta);
+          ServerInstance->map(map)->setBlock(local, block, newmeta);
           changed.insert(local);
           meta++;
           if (meta < 8)
           {
-            Mineserver::get()->map(map)->setBlock(pos, block, meta);
+            ServerInstance->map(map)->setBlock(pos, block, meta);
             changed.insert(pos);
           }
           else
           {
-            Mineserver::get()->map(map)->setBlock(pos, BLOCK_AIR, 0);
+            ServerInstance->map(map)->setBlock(pos, BLOCK_AIR, 0);
             changed.insert(pos);
             toRem.push_back(pos);
           }
@@ -215,17 +441,17 @@ bool Physics::update()
         if (meta < newmeta - 1 || (meta == newmeta && falling))
         {
           newmeta --;
-          Mineserver::get()->map(map)->setBlock(local, block, newmeta);
+          ServerInstance->map(map)->setBlock(local, block, newmeta);
           changed.insert(local);
           meta ++;
           if (meta < 8)
           {
-            Mineserver::get()->map(map)->setBlock(pos, block, meta);
+            ServerInstance->map(map)->setBlock(pos, block, meta);
             changed.insert(pos);
           }
           else
           {
-            Mineserver::get()->map(map)->setBlock(pos, BLOCK_AIR, 0);
+            ServerInstance->map(map)->setBlock(pos, BLOCK_AIR, 0);
             changed.insert(pos);
             toRem.push_back(pos);
           }
@@ -248,16 +474,22 @@ bool Physics::update()
   {
     addSimulation(toAdd[i]);
   }
-  Mineserver::get()->map(map)->sendMultiBlocks(changed);
+  ServerInstance->map(map)->sendMultiBlocks(changed);
 
-  clock_t endtime = clock() - starttime;
+  //clock_t endtime = clock() - starttime;
   //  LOG(INFO, "Physics", "Exit simulation, took " + dtos(endtime * 1000 / CLOCKS_PER_SEC) + " ms, " + dtos(simList.size()) + " items left");
+  return true;
+}
+
+bool Physics::addFallSimulation(uint8_t block, vec pos, uint32_t EID)
+{  
+  fallSimList.push_back(Falling(block,pos,EID));
   return true;
 }
 
 // Add world simulation
 bool Physics::addSimulation(vec pos)
-{
+{  
   if (!enabled)
   {
     return true;
@@ -265,7 +497,7 @@ bool Physics::addSimulation(vec pos)
 
   uint8_t block;
   uint8_t meta;
-  Mineserver::get()->map(map)->getBlock(pos, &block, &meta);
+  ServerInstance->map(map)->getBlock(pos, &block, &meta);
   SimBlock simulationBlock(block, pos, meta);
 
   // Dont add duplicates
@@ -357,7 +589,7 @@ bool Physics::checkSurrounding(vec pos)
     }
 
     //Add liquid blocks to simulation if they are affected by breaking a block
-    if (Mineserver::get()->map(map)->getBlock(local, &block, &meta) &&
+    if (ServerInstance->map(map)->getBlock(local, &block, &meta) &&
         isLiquidBlock(block))
     {
       addSimulation(local);

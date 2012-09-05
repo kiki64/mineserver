@@ -24,17 +24,15 @@
   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
   SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
-#if defined(linux)
+#ifdef __unix__
 #include <unistd.h>
 #include <libgen.h>
 #include <wordexp.h>  // for wordexp
 #include <sys/stat.h> // for mkdir
 #include <climits>
-#if defined __APPLE__
-  #include <mach-o/dyld.h>
 #endif
-#elif defined(WIN32)
+
+#ifdef _WIN32
 #include <direct.h>
 #define _WINSOCKAPI_ //Stops windows.h from including winsock.h
                      //Fixes errors I was having
@@ -52,6 +50,7 @@
 #include <ctime>
 #include <cmath>
 #include <cctype>
+#include <cassert>
 
 #include "tools.h"
 #include "logger.h"
@@ -209,13 +208,13 @@ std::string hash(std::string value)
 bool fileExists(const std::string& filename)
 {
   std::ifstream i(filename.c_str());
-  return i;
+  return i.is_open();
 }
 
 bool makeDirectory(const std::string& path)
 {
 #ifdef WIN32
-  return _mkdir(path.c_str()) != -1;
+  return mkdir(path.c_str()) != -1;
 #else
   return mkdir(path.c_str(), 0755) != -1;
 #endif
@@ -251,19 +250,20 @@ std::string canonicalizePath(const std::string& pathname)
   return pathname;
 
 #else
-
+  // Why is this else? what the fuck are we compiling on? - Justasic
   return pathname;
 
 #endif
 
 }
 
-std::string relativeToAbsolute(std::string pathname)
+std::string relativeToAbsolute(const std::string &path)
 {
   /// This is a very crude way to check if the path is relative.
   /// We must replace this by a more portable "pathIsRelative()" check.
+  std::string pathname = path;
   if (!pathname.empty() && pathname[0] != PATH_SEPARATOR && pathname[0] != '~')
-    pathname = Mineserver::get()->config()->config_path + PATH_SEPARATOR + pathname;
+    pathname = ServerInstance->config()->config_path + PATH_SEPARATOR + pathname;
 
   pathname = canonicalizePath(pathname);
 
@@ -277,7 +277,7 @@ std::string getHomeDir()
 
   return canonicalizePath("~/.mineserver");
 
-#elif defined(WIN32)
+#elif defined(__WIN32__)
 
 char szPath[MAX_PATH];
 if(SHGetFolderPath(NULL, CSIDL_APPDATA, NULL, 0, szPath) == 0)
@@ -301,45 +301,45 @@ else
 
 std::string pathOfExecutable()
 {
-  uint32_t dest_len = 4096;
-  const uint32_t const_dest_len = 4096;
-  char path[const_dest_len];
-  std::memset(path, 0, const_dest_len);
+    char buffer[512];
+    assert(getcwd(buffer, sizeof(buffer)));
+
+    return buffer;
+    /*
+  const size_t dest_len = 4096;
+  char path[dest_len];
+  std::memset(path, 0, dest_len);
 
 #if defined(linux)
-#if defined __APPLE__
-  uint32_t *dest_len_ptr = &dest_len;
-  if (_NSGetExecutablePath(path, dest_len_ptr) != -1)
-#else
+
   if (readlink ("/proc/self/exe", path, dest_len) != -1)
-#endif
   {
-#if defined __APPLE__
-    // remove executable name from path:
-    *(strrchr(path,'/'))='\0';
-    // remove last path component name from path:
-    *(strrchr(path,'/'))='\0';
-#endif
     dirname(path);
   }
 
   return std::string(path);
 
 #elif defined(WIN32)
-
+*/
+  /*
   if (0 == GetModuleFileName(NULL, path, dest_len))
   {
     return "";
   }
 
   return pathOfFile(path).first;
+  */
+    /*
+  char buffer[512];
+  assert(getcwd(buffer, sizeof(buffer)));
 
+  return buffer;
 #else
 
   return "";
 
 #endif
-
+*/
 }
 
 std::pair<std::string, std::string> pathOfFile(const std::string& filename)
@@ -382,33 +382,18 @@ std::pair<std::string, std::string> pathOfFile(const std::string& filename)
 }
 
 
-/**
- * C++ version 0.4 std::string style "itoa":
- * Contributions from Stuart Lowe, Ray-Yuan Sheu,
- * Rodrigo de Salvo Braz, Luc Gallant, John Maloney
- * and Brian Hunt
- */
-std::string itoa(int value, int base) {
 
-    std::string buf;
-
-    // check that the base if valid
-    if (base < 2 || base > 16) return buf;
-
-    enum { kMaxDigits = 35 };
-    buf.reserve( kMaxDigits ); // Pre-allocate enough space.
-
-    int quotient = value;
-
-    // Translating number to string with base:
-    do {
-        buf += "0123456789abcdef"[ std::abs( quotient % base ) ];
-        quotient /= base;
-    } while ( quotient );
-
-    // Append the negative sign
-    if ( value < 0) buf += '-';
-
-    std::reverse( buf.begin(), buf.end() );
-    return buf;
+uint64_t microTime()
+{
+#ifndef WIN32
+  struct timespec now;
+  clock_gettime(CLOCK_MONOTONIC, &now);
+  return (now.tv_sec*(uint64_t)1000000 + now.tv_nsec/(uint64_t)1000);
+#else
+  FILETIME ft;
+  GetSystemTimeAsFileTime(&ft);
+  uint64_t out = ((uint64_t)ft.dwHighDateTime)<<32 | (uint64_t)ft.dwLowDateTime;
+  out /= 10; // from 100ns to 1us
+  return out;
+#endif
 }

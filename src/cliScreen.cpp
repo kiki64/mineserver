@@ -32,7 +32,7 @@
 
 #include <cstdio>
 
-#ifndef WIN32
+#ifndef _WIN32
 #include <poll.h>
 #include <unistd.h>
 #endif
@@ -79,8 +79,8 @@ void CliScreen::init(std::string version)
   stdinThread = CreateThread(NULL, 0, _stdinThreadProc, (void*)this, 0, NULL);
 #endif
 
-  static_cast<Hook3<bool, int, const char*, const char*>*>(Mineserver::get()->plugin()->getHook("LogPost"))->addCallback(&CliScreen::Log);
-  static_cast<Hook0<bool>*>(Mineserver::get()->plugin()->getHook("Timer200"))->addCallback(&CliScreen::CheckForCommand);
+  addCallback("LogPost",(funcPointer)&CliScreen::LogEvent);
+  addCallback("Timer200",(funcPointer)&CliScreen::CheckForCommand);
 }
 
 void CliScreen::end()
@@ -137,20 +137,20 @@ bool CliScreen::hasCommand()
 
 bool CliScreen::CheckForCommand()
 {
-  if (Mineserver::get()->screen()->hasCommand())
+  if (ServerInstance->screen()->hasCommand())
   {
     // Now handle this command as normal
     User serverUser(-1, SERVER_CONSOLE_UID);
     serverUser.changeNick("[Server]");
-    Mineserver::get()->chat()->handleMsg(&serverUser, Mineserver::get()->screen()->getCommand());
+    ServerInstance->chat()->handleMsg(&serverUser, ServerInstance->screen()->getCommand());
   }
 
   return false;
 }
 
-bool CliScreen::Log(int type, const char* source, const char* message)
+bool CliScreen::LogEvent(int type, const char* source, const char* message)
 {
-  Mineserver::get()->screen()->log((LogType::LogType)type, std::string(source), std::string(message));
+  ServerInstance->screen()->log((LogType::LogType)type, std::string(source), std::string(message));
   return true;
 }
 

@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2011, The Mineserver Project
+   Copyright (c) 2012, The Mineserver Project
    All rights reserved.
 
   Redistribution and use in source and binary forms, with or without
@@ -54,7 +54,7 @@ struct RegionFile {
 #include <ctime>
 #include <sys/stat.h>
 
-#ifdef linux
+#ifdef __unix__
 #include <dirent.h>
 #endif
 
@@ -112,20 +112,20 @@ bool RegionFile::openFile(std::string mapDir, int32_t chunkX, int32_t chunkZ)
   }
 
   //If the file doesn't exist, create it, otherwise open it for reading and writing
-  if (stat(std::string(mapDir + "/region/r." + strchunkX + "." + strchunkZ + ".mcr").c_str(), &stFileInfo) != 0)
+  if (stat(std::string(mapDir + "/region/r." + strchunkX + "." + strchunkZ + ".mca").c_str(), &stFileInfo) != 0)
   {
     //This will overwrite existing file
-    regionFile = fopen(std::string(mapDir + "/region/r." + strchunkX + "." + strchunkZ + ".mcr").c_str(), "wb+");
+    regionFile = fopen(std::string(mapDir + "/region/r." + strchunkX + "." + strchunkZ + ".mca").c_str(), "wb+");
   }
   else
   {
-    regionFile = fopen(std::string(mapDir + "/region/r." + strchunkX + "." + strchunkZ + ".mcr").c_str(), "rb+");
+    regionFile = fopen(std::string(mapDir + "/region/r." + strchunkX + "." + strchunkZ + ".mca").c_str(), "rb+");
   }
 
   //Couldn't open the file?
   if (regionFile == NULL)
   {
-    std::cout << "Failed to open file " << std::string(mapDir + "/region/r." + strchunkX + "." + strchunkZ + ".mcr") << std::endl;
+    std::cout << "Failed to open file " << std::string(mapDir + "/region/r." + strchunkX + "." + strchunkZ + ".mca") << std::endl;
     return false;
   }
 
@@ -319,7 +319,7 @@ bool RegionFile::writeChunk(uint8_t* chunkdata, uint32_t datalen, int32_t x, int
       setOffset(x, z, (sectorNumber << 8) | sectorsNeeded);
     }
   }
-  setTimestamp(x, z, std::time(NULL));
+  setTimestamp(x, z, int(std::time(NULL)));
 
   return true;
 }
@@ -419,9 +419,9 @@ int getdir(std::string dir, std::vector<std::string> &files)
 {
 #ifdef WIN32
   HANDLE hFind = INVALID_HANDLE_VALUE;
-  WIN32_FIND_DATA ffd; // File information
+  WIN32_FIND_DATAA ffd; // File information
   dir += "\\*.*";
-  hFind = FindFirstFile(dir.c_str(), &ffd);
+  hFind = FindFirstFileA(dir.c_str(), &ffd);
 
   if (INVALID_HANDLE_VALUE == hFind)
   {

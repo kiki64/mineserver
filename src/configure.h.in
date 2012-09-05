@@ -13,5 +13,36 @@
 #cmakedefine CONFIG_DIR_SHARE "@CONFIG_DIR_SHARE@"
 #cmakedefine CONFIG_DIR_DISTSOURCE "@CONFIG_DIR_DISTSOURCE@"
 
+// Version strings
+#define VERSION_MAJOR "@mineserver_MAJOR_VERSION@"
+#define VERSION_MINOR "@mineserver_MINOR_VERSION@"
+#define VERSION_PATCH "@mineserver_PATCH_LEVEL@"
+#define VERSION_GIT_SHORT "@VERSION_GIT@"
+#define VERSION_GIT "@VERSION_STR@"
+#define VERSION_SIMPLE "@mineserver_VERSION_SIMPLE@"
+#define VERSION_COMPLETE "@mineserver_VERSION_COMPLETE@"
+
+// Windows specific fixes
+/*
+#ifdef WIN32
+#define unlink _unlink
+#define close closesocket
+#define getpid GetCurrentProcessId
+#endif
+*/
+
+// Justasic:
+// Check to see if we have the proper includes for our signal handler
+// if we do then include them as well
+#cmakedefine HAVE_BACKTRACE 1
+#cmakedefine HAVE_SYS_UTSNAME_H 1
+
+#ifdef HAVE_BACKTRACE
+# include <execinfo.h>
+#endif
+
+#ifdef HAVE_SYS_UTSNAME_H
+# include <sys/utsname.h>
+#endif
 
 #endif // _CONFIGURE_H

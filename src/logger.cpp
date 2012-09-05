@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2011, The Mineserver Project
+  Copyright (c) 2012, The Mineserver Project
   All rights reserved.
 
   Redistribution and use in source and binary forms, with or without
@@ -30,6 +30,7 @@
 //
 
 #include <sstream>
+#include <stdio.h>
 
 #include "mineserver.h"
 #include "plugin.h"
@@ -54,9 +55,7 @@ void Logger::log(const std::string& msg, const std::string& file, int line)
 
 void Logger::log(LogType::LogType type, const std::string& source, const std::string& message)
 {
-  Hook* hook = NULL;
-  if (!Mineserver::get()->plugin()
-      || !(hook = Mineserver::get()->plugin()->getHook("LogPost")))
+  if (!ServerInstance->plugin()->hasHook("LogPost"))
   {
     std::clog.tie(&std::cout);
     if (type < LogType::LOG_WARNING)
@@ -68,5 +67,18 @@ void Logger::log(LogType::LogType type, const std::string& source, const std::st
     return;
   }
 
-  (static_cast<Hook3<bool, int, const char*, const char*>*>(hook))->doAll((int)type, source.c_str(), message.c_str());
+  runAllCallback("LogPost",(int)type, source.c_str(), message.c_str());
+}
+
+void Logger::log(LogType::LogType type, const std::string& source, const char* message, ...)
+{
+  // Message formatting
+  char buffer[4096];
+  va_list args;
+  va_start(args, message);
+  vsnprintf(buffer, sizeof(buffer), message, args);
+  va_end(args);
+
+  // Call back to our own logging function because i am too lazy to make it here
+  this->log(type, source, std::string(buffer));
 }

@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2011, The Mineserver Project
+    Copyright (c) 2012, The Mineserver Project
     All rights reserved.
 
   Redistribution and use in source and binary forms, with or without
@@ -27,10 +27,10 @@
 
 #include "biomegen.h"
 
-#include "../mineserver.h"
-#include "../config.h"
-#include "../tree.h"
-#include "../random.h"
+#include "mineserver.h"
+#include "config.h"
+#include "tree.h"
+#include "random.h"
 
 BiomeGen::BiomeGen()
   : blocks(16 * 16 * 128, 0),
@@ -49,14 +49,14 @@ void BiomeGen::init(int seed)
   treenoise.SetFrequency(0.01);
   treenoise.SetOctaveCount(3);
   //###### END TREE GEN #######
-  seaLevel = Mineserver::get()->config()->iData("mapgen.sea.level");
-  addTrees = Mineserver::get()->config()->bData("mapgen.trees.enabled");
-  expandBeaches = Mineserver::get()->config()->bData("mapgen.beaches.expand");
-  beachExtent = Mineserver::get()->config()->iData("mapgen.beaches.extent");
-  beachHeight = Mineserver::get()->config()->iData("mapgen.beaches.height");
+  seaLevel = ServerInstance->config()->iData("mapgen.sea.level");
+  addTrees = ServerInstance->config()->bData("mapgen.trees.enabled");
+  expandBeaches = ServerInstance->config()->bData("mapgen.beaches.expand");
+  beachExtent = ServerInstance->config()->iData("mapgen.beaches.extent");
+  beachHeight = ServerInstance->config()->iData("mapgen.beaches.height");
 
-  addOre = Mineserver::get()->config()->bData("mapgen.addore");
-  addCaves = Mineserver::get()->config()->bData("mapgen.caves.enabled");
+  addOre = ServerInstance->config()->bData("mapgen.addore");
+  addCaves = ServerInstance->config()->bData("mapgen.caves.enabled");
 
   BiomeBase.SetFrequency(0.2);
   BiomeBase.SetSeed(seed - 1);
@@ -124,7 +124,7 @@ void BiomeGen::re_init(int seed)
 
 void BiomeGen::generateFlatgrass(int x, int z, int map)
 {
-  sChunk* chunk = Mineserver::get()->map(map)->getChunk(x, z);
+  sChunk* chunk = ServerInstance->map(map)->getChunk(x, z);
   Block top = BLOCK_GRASS;
   if (winterEnabled)
   {
@@ -135,24 +135,24 @@ void BiomeGen::generateFlatgrass(int x, int z, int map)
   {
     for (int bZ = 0; bZ < 16; bZ++)
     {
-      heightmap[(bZ << 4) + bX] = 64;
+      heightmap_pointer[(bZ << 4) + bX] = 64;
       for (int bY = 0; bY < 128; bY++)
       {
         if (bY == 0)
         {
-          chunk->blocks[bY + (bZ * 128 + (bX * 128 * 16))] = BLOCK_BEDROCK;
+          chunk->blocks[bX + (bZ << 4) + (bY << 8)] = BLOCK_BEDROCK;
         }
         else if (bY < 64)
         {
-          chunk->blocks[bY + (bZ * 128 + (bX * 128 * 16))] = BLOCK_DIRT;
+          chunk->blocks[bX + (bZ << 4) + (bY << 8)] = BLOCK_DIRT;
         }
         else if (bY == 64)
         {
-          chunk->blocks[bY + (bZ * 128 + (bX * 128 * 16))] = top;
+          chunk->blocks[bX + (bZ << 4) + (bY << 8)] = top;
         }
         else
         {
-          chunk->blocks[bY + (bZ * 128 + (bX * 128 * 16))] = BLOCK_AIR;
+          chunk->blocks[bX + (bZ << 4) + (bY << 8)] = BLOCK_AIR;
         }
       }
     }
@@ -164,10 +164,8 @@ void BiomeGen::generateChunk(int x, int z, int map)
   NBT_Value* main = new NBT_Value(NBT_Value::TAG_COMPOUND);
   NBT_Value* val = new NBT_Value(NBT_Value::TAG_COMPOUND);
 
-  val->Insert("Blocks", new NBT_Value(blocks));
-  val->Insert("Data", new NBT_Value(blockdata));
-  val->Insert("SkyLight", new NBT_Value(skylight));
-  val->Insert("BlockLight", new NBT_Value(blocklight));
+  val->Insert("Sections", new NBT_Value(NBT_Value::TAG_LIST, NBT_Value::TAG_COMPOUND));
+
   val->Insert("HeightMap", new NBT_Value(heightmap));
   val->Insert("Entities", new NBT_Value(NBT_Value::TAG_LIST, NBT_Value::TAG_COMPOUND));
   val->Insert("TileEntities", new NBT_Value(NBT_Value::TAG_LIST, NBT_Value::TAG_COMPOUND));
@@ -178,31 +176,28 @@ void BiomeGen::generateChunk(int x, int z, int map)
 
   main->Insert("Level", val);
 
-  /*  uint32_t chunkid;
-  Mineserver::get()->map()->posToId(x, z, &chunkid);
-
-  Mineserver::get()->map()->maps[chunkid].x = x;
-  Mineserver::get()->map()->maps[chunkid].z = z; */
-
-  std::vector<uint8_t>* t_blocks = (*val)["Blocks"]->GetByteArray();
-  std::vector<uint8_t>* t_data = (*val)["Data"]->GetByteArray();
-  std::vector<uint8_t>* t_blocklight = (*val)["BlockLight"]->GetByteArray();
-  std::vector<uint8_t>* t_skylight = (*val)["SkyLight"]->GetByteArray();
-  std::vector<uint8_t>* heightmap = (*val)["HeightMap"]->GetByteArray();
-
   sChunk* chunk = new sChunk();
-  chunk->blocks = &((*t_blocks)[0]);
-  chunk->data = &((*t_data)[0]);
-  chunk->blocklight = &((*t_blocklight)[0]);
-  chunk->skylight = &((*t_skylight)[0]);
-  chunk->heightmap = &((*heightmap)[0]);
+  //chunk->blocks = new uint8_t[16 * 16 * 256];
+  //chunk->addblocks = new uint8_t[16 * 16 * 256 / 2];
+  //chunk->data = new uint8_t[16 * 16 * 256 / 2];
+  //chunk->blocklight = new uint8_t[16 * 16 * 256 / 2];
+  //chunk->skylight = new uint8_t[16 * 16 * 256 / 2];
+  chunk->heightmap = &((*(*val)["HeightMap"]->GetIntArray())[0]);
+  heightmap_pointer = chunk->heightmap;
   chunk->nbt = main;
   chunk->x = x;
   chunk->z = z;
 
-  Mineserver::get()->map(map)->chunks.insert(ChunkMap::value_type(ChunkMap::key_type(x, z), chunk));
+  memset(chunk->blocks, 0, 16*16*256);
+  memset(chunk->addblocks, 0, 16*16*256/2);
+  memset(chunk->data, 0, 16*16*256/2);
+  memset(chunk->blocklight, 0, 16*16*256/2);
+  memset(chunk->skylight, 0, 16*16*256/2);
+  chunk->chunks_present = 0xffff;
 
-  if (Mineserver::get()->config()->bData("mapgen.flatgrass"))
+  ServerInstance->map(map)->chunks.insert(ChunkMap::value_type(ChunkMap::key_type(x, z), chunk));
+
+  if (ServerInstance->config()->bData("mapgen.flatgrass"))
   {
     generateFlatgrass(x, z, map);
   }
@@ -213,12 +208,12 @@ void BiomeGen::generateChunk(int x, int z, int map)
 
 
   // Update last used time
-  //Mineserver::get()->map()->mapLastused[chunkid] = (int)time(0);
+  //ServerInstance->map()->mapLastused[chunkid] = (int)time(0);
 
   // Not changed
-  chunk->changed = Mineserver::get()->config()->bData("map.save_unchanged_chunks");
+  chunk->changed = ServerInstance->config()->bData("map.save_unchanged_chunks");
 
-  //Mineserver::get()->map()->maps[chunkid].nbt = main;
+  //ServerInstance->map()->maps[chunkid].nbt = main;
 
   if (addOre)
   {
@@ -254,18 +249,18 @@ void BiomeGen::AddTrees(int x, int z, int map)
 
   memset(empty, 1, 256);
 
-  uint8_t trees = uniform01() * 7 + 13;
+  uint8_t trees = uint8_t(uniform01() * 7 + 13);
   uint8_t i = 0;
   while (i < trees)
   {
-    uint8_t a = uniform01() * 16;
-    uint8_t b = uniform01() * 16;
+    uint8_t a = uint8_t(uniform01() * 16);
+    uint8_t b = uint8_t(uniform01() * 16);
 
     if (empty[a][b])
     {
       blockX = a + xBlockpos;
       blockZ = b + zBlockpos;
-      blockY = heightmap[(b<<4)+a];
+      blockY = heightmap_pointer[(b<<4)+a];
 
       // Another dirty haxx!
       if (blockY > 120)
@@ -273,9 +268,9 @@ void BiomeGen::AddTrees(int x, int z, int map)
         i++;
         continue;
       }
-      Mineserver::get()->map(map)->getBlock(blockX, blockY, blockZ, &block, &meta);
+      ServerInstance->map(map)->getBlock(blockX, blockY, blockZ, &block, &meta);
 
-      int biome = BiomeSelect.GetValue(blockX / 100.0, 0, blockZ / 100.0);
+      int biome = int(BiomeSelect.GetValue(blockX / 100.0, 0, blockZ / 100.0));
       if (biome == 1 &&
           treenoise.GetValue(blockX, 0, blockZ) > -0.3 &&
           ((rand() % 16) < 7)) // Dirty haxx!
@@ -287,21 +282,21 @@ void BiomeGen::AddTrees(int x, int z, int map)
           continue;
         }
           //LOGLF("testing reed area");
-          Mineserver::get()->map(map)->getBlock(blockX, (blockY + i), blockZ, &block, &meta);
+          ServerInstance->map(map)->getBlock(blockX, (blockY + i), blockZ, &block, &meta);
           if(block == BLOCK_SAND){
-            Mineserver::get()->map(map)->setBlock(blockX, (blockY + 1 + i), blockZ, (char)BLOCK_CACTUS, (char)meta);
-            Mineserver::get()->map(map)->setBlock(blockX, (blockY + 2 + i), blockZ, (char)BLOCK_CACTUS, (char)meta);
-            Mineserver::get()->map(map)->setBlock(blockX, (blockY + 3 + i), blockZ, (char)BLOCK_CACTUS, (char)meta);
+            ServerInstance->map(map)->setBlock(blockX, (blockY + 1 + i), blockZ, (char)BLOCK_CACTUS, (char)meta);
+            ServerInstance->map(map)->setBlock(blockX, (blockY + 2 + i), blockZ, (char)BLOCK_CACTUS, (char)meta);
+            ServerInstance->map(map)->setBlock(blockX, (blockY + 3 + i), blockZ, (char)BLOCK_CACTUS, (char)meta);
             //printf("successful cactus! x%d y%d z%d\n", blockX, blockY, blockZ);
           }
 
 
 
         // Check that it's not in water
-        /*Mineserver::get()->map(map)->getBlock(blockX, ++blockY, blockZ, &block, &meta);
+        /*ServerInstance->map(map)->getBlock(blockX, ++blockY, blockZ, &block, &meta);
         if (!(block == BLOCK_WATER || block == BLOCK_STATIONARY_WATER))
         {
-          sChunk* chunk = Mineserver::get()->map(map)->getChunk(x, z);
+          sChunk* chunk = ServerInstance->map(map)->getChunk(x, z);
 
           uint8_t* curBlock;
           int count = (fastrand() % 3) + 3;
@@ -329,15 +324,15 @@ void BiomeGen::AddTrees(int x, int z, int map)
         }
           //LOGLF("testing reed area");
 	  int xOffset = 0;
-	  Mineserver::get()->map(map)->getBlock(blockX + xOffset, (blockY + i), blockZ, &block, &meta);
+	  ServerInstance->map(map)->getBlock(blockX + xOffset, (blockY + i), blockZ, &block, &meta);
           if(block == BLOCK_DIRT || block == BLOCK_REED || block == BLOCK_GRASS){
             if(block == BLOCK_GRASS){
-	      Mineserver::get()->map(map)->setBlock(blockX + xOffset, (blockY + i), blockZ, (char)BLOCK_DIRT, (char)meta);
+	      ServerInstance->map(map)->setBlock(blockX + xOffset, (blockY + i), blockZ, (char)BLOCK_DIRT, (char)meta);
               block = BLOCK_DIRT;
             }
-            Mineserver::get()->map(map)->setBlock(blockX + xOffset, (blockY + 1 + i), blockZ, (char)BLOCK_REED, (char)meta);
-            Mineserver::get()->map(map)->setBlock(blockX + xOffset, (blockY + 2 + i), blockZ, (char)BLOCK_REED, (char)meta);
-            Mineserver::get()->map(map)->setBlock(blockX + xOffset, (blockY + 3 + i), blockZ, (char)BLOCK_REED, (char)meta);
+            ServerInstance->map(map)->setBlock(blockX + xOffset, (blockY + 1 + i), blockZ, (char)BLOCK_REED, (char)meta);
+            ServerInstance->map(map)->setBlock(blockX + xOffset, (blockY + 2 + i), blockZ, (char)BLOCK_REED, (char)meta);
+            ServerInstance->map(map)->setBlock(blockX + xOffset, (blockY + 3 + i), blockZ, (char)BLOCK_REED, (char)meta);
             //printf("successful reed! x%d y%d z%d\n", blockX + xOffset, blockY, blockZ);
           }
 
@@ -347,7 +342,7 @@ void BiomeGen::AddTrees(int x, int z, int map)
         if (block == BLOCK_DIRT || block == BLOCK_GRASS)
         {
           // Trees only grow on dirt and grass? =b
-          Mineserver::get()->map(map)->getBlock(blockX, ++blockY, blockZ, &block, &meta);
+          ServerInstance->map(map)->getBlock(blockX, ++blockY, blockZ, &block, &meta);
           if (block == BLOCK_AIR || block == BLOCK_SNOW)
           {
             if (treenoise.GetValue(blockX, 0, blockZ) > -0.4)
@@ -386,7 +381,7 @@ void BiomeGen::generateWithNoise(int x, int z, int map)
   gettimeofday(&start, NULL);
 #endif
 #endif
-  sChunk* chunk = Mineserver::get()->map(map)->getChunk(x, z);
+  sChunk* chunk = ServerInstance->map(map)->getChunk(x, z);
 
   // Winterland
   Block topBlock = BLOCK_GRASS;
@@ -406,8 +401,8 @@ void BiomeGen::generateWithNoise(int x, int z, int map)
   {
     for (int bZ = 0; bZ < 16; bZ++)
     {
-      heightmap[(bZ << 4) + bX] = ymax = currentHeight = (uint8_t)((finalTerrain.GetValue((xBlockpos + bX) / 100.0, 0, (zBlockpos + bZ) / 100.0) * 60) + 64);
-      int biome = BiomeSelect.GetValue((xBlockpos + bX) / 100.0, 0, (zBlockpos + bZ) / 100.0);
+      heightmap_pointer[(bZ << 4) + bX] = ymax = currentHeight = (uint8_t)((finalTerrain.GetValue((xBlockpos + bX) / 100.0, 0, (zBlockpos + bZ) / 100.0) * 60) + 64);
+      int biome = int(BiomeSelect.GetValue((xBlockpos + bX) / 100.0, 0, (zBlockpos + bZ) / 100.0));
       char toplayer;
       if (biome == 0)
       {
@@ -435,7 +430,7 @@ void BiomeGen::generateWithNoise(int x, int z, int map)
       }
 
       int32_t stoneHeight = (int32_t)currentHeight - ((64 - (currentHeight % 64)) / 8) + 1;
-      int32_t bYbX = ((bZ << 7) + (bX << 11));
+      //int32_t bYbX = ((bZ << 7) + (bX << 11));
 
       if (ymax < seaLevel)
       {
@@ -445,7 +440,7 @@ void BiomeGen::generateWithNoise(int x, int z, int map)
 
       for (int bY = 0; bY <= ymax; bY++)
       {
-        curBlock = &(chunk->blocks[bYbX++]);
+        curBlock = &(chunk->blocks[bX + (bZ << 4) + (bY << 8)]);
 
         // Place bedrock
         if (bY == 0)
@@ -462,7 +457,7 @@ void BiomeGen::generateWithNoise(int x, int z, int map)
             // Add caves
             if (addCaves)
             {
-              cave.AddCaves(*curBlock, xBlockpos + bX, bY, zBlockpos + bZ);
+              cave.AddCaves(*curBlock, int(xBlockpos + bX), bY, int(zBlockpos + bZ));
             }
           }
           else
@@ -537,10 +532,10 @@ void BiomeGen::generateWithNoise(int x, int z, int map)
 #ifdef PRINT_MAPGEN_TIME
 #ifdef WIN32
   t_end = timeGetTime();
-  Mineserver::get()->logger()->log("Mapgen: " + dtos(t_end - t_begin) + "ms");
+  ServerInstance->logger()->log("Mapgen: " + dtos(t_end - t_begin) + "ms");
 #else
   gettimeofday(&end, NULL);
-  Mineserver::get()->logger()->log("Mapgen: " + dtos(end.tv_usec - start.tv_usec));
+  ServerInstance->logger()->log("Mapgen: " + dtos(end.tv_usec - start.tv_usec));
 #endif
 #endif
 }
@@ -558,7 +553,7 @@ MAKE_UNIFORM_DIST( 0,  1)
 
 void BiomeGen::AddOre(int x, int z, int map, uint8_t type)
 {
-  sChunk* chunk = Mineserver::get()->map(map)->getChunk(x, z);
+  sChunk* chunk = ServerInstance->map(map)->getChunk(x, z);
 
   int blockX, blockY, blockZ;
   uint8_t block;
@@ -620,7 +615,7 @@ void BiomeGen::AddOre(int x, int z, int map, uint8_t type)
     blockX = uniform_8_12();
     blockZ = uniform_8_12();
 
-    blockY = heightmap[(blockZ << 4) + blockX];
+    blockY = heightmap_pointer[(blockZ << 4) + blockX];
     blockY -= 5;
 
     // Check that startheight is not higher than height at that column
@@ -635,7 +630,8 @@ void BiomeGen::AddOre(int x, int z, int map, uint8_t type)
     // Calculate Y
     blockY = uniformUINT(0, blockY);
 
-    block = chunk->blocks[blockY + ((blockZ << 7) + (blockX << 11))];
+    
+    block = chunk->blocks[blockX + (blockZ << 4) + (blockY << 8)];
 
     // No ore in caves
     if (block == BLOCK_AIR)
@@ -653,9 +649,9 @@ void BiomeGen::AddDeposit(int x, int y, int z, int map, uint8_t block, int minDe
 
   for (int i = 0; i < depoSize; i++)
   {
-    if (chunk->blocks[y + ((z << 7) + (x << 11))] == BLOCK_STONE)
+    if (chunk->blocks[x + (z << 4) + (y << 8)] == BLOCK_STONE)
     {
-      chunk->blocks[y + ((z << 7) + (x << 11))] = block;
+      chunk->blocks[x + (z << 4) + (y << 8)] = block;
     }
 
     z = z + int(uniform_0_1()) - 1;

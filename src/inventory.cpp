@@ -31,13 +31,13 @@
 #include <stdlib.h>
 
 #include "inventory.h"
+#include "protocol.h"
 #include "constants.h"
 #include "map.h"
 #include "user.h"
 #include "mineserver.h"
 #include "furnaceManager.h"
 #include "logger.h"
-#include "protocol.h"
 #include <sstream>
 
 
@@ -48,13 +48,15 @@ void Item::sendUpdate()
     if (slot == player->curItem + 36)
     {
       Packet pkt;
-      pkt << Protocol::entityEquipment( (int32_t)player->UID, (int16_t)0, (int16_t)type, (int16_t) health );
+      pkt << (int8_t)PACKET_ENTITY_EQUIPMENT << (int32_t)player->UID
+          << (int16_t)0 << Protocol::slot(type,count,health);
       player->sendAll(pkt);
     }
     if (slot >= 5 && slot <= 8)
     {
       Packet pkt;
-      pkt << Protocol::entityEquipment( (int32_t)player->UID, (int16_t)(5 - (slot - 4)), (int16_t)type, (int16_t) 0 );
+      pkt << (int8_t)PACKET_ENTITY_EQUIPMENT << (int32_t)player->UID
+          << (int16_t)(5 - (slot - 4)) << Protocol::slot(type,count,health);//<< (int16_t)type << (int16_t) 0;
       player->sendAll(pkt);
     }
     int window = 0;
@@ -64,14 +66,8 @@ void Item::sendUpdate()
       window = -1;
       t_slot = 0;
     }
-    if (type != -1)
-    {
-      player->buffer << Protocol::setSlot( (int8_t)window, (int16_t)t_slot, (int16_t) type, (int8_t)count, (int16_t)health );
-    }
-    else
-    {
-      player->buffer << Protocol::setSlot( (int8_t)window, (int16_t)t_slot, (int16_t) type );
-    }
+    player->buffer << Protocol::setSlotHeader(window, t_slot)
+                   << Protocol::slot(type, count, health);
   }
   // Cases where we're changing items in chests, furnaces etc?
 }
@@ -101,7 +97,7 @@ void Item::setCount(int8_t count)
 
 void Item::setHealth(int16_t health)
 {
-  bool rightUse;
+  //bool rightUse;
   if (health <= 0)
   {
     this->health = health;
@@ -394,7 +390,7 @@ bool Inventory::canBeArmour(int slot, int type)
   if (slot == 5)
   {
     // Helmet slot. Lots of fun here
-    if (Mineserver::get()->m_only_helmets)
+    if (ServerInstance->m_only_helmets)
     {
       switch (type)
       {
@@ -463,16 +459,16 @@ bool Inventory::canBeArmour(int slot, int type)
 bool Inventory::windowClick(User* user, int8_t windowID, int16_t slot, int8_t rightClick, int16_t actionNumber, int16_t itemID, int8_t itemCount, int16_t itemUses, int8_t shift)
 {
   //Ack
-  user->buffer << Protocol::transaction( (int8_t)windowID, (int16_t)actionNumber, (int8_t)1 );
+  user->buffer << (int8_t)PACKET_TRANSACTION << (int8_t)windowID << (int16_t)actionNumber << (int8_t)1;
 
   //Click outside the window
   if (slot == -999)
   {
     if (user->inventoryHolding.getType() != -1)
     {
-      Mineserver::get()->map(user->pos.map)->createPickupSpawn((int)user->pos.x, (int)user->pos.y, (int)user->pos.z,
-      user->inventoryHolding.getType(), user->inventoryHolding.getCount(),
-      user->inventoryHolding.getHealth(), user, false);
+      ServerInstance->map(user->pos.map)->createPickupSpawn((int)user->pos.x, (int)user->pos.y, (int)user->pos.z,
+          user->inventoryHolding.getType(), user->inventoryHolding.getCount(),
+          user->inventoryHolding.getHealth(), user);
       user->inventoryHolding.setType(-1);
     }
     return true;
@@ -486,7 +482,7 @@ bool Inventory::windowClick(User* user, int8_t windowID, int16_t slot, int8_t ri
   sChunk* chunk = NULL;
   if (windowID != 0)
   {
-    chunk = Mineserver::get()->map(user->pos.map)->getChunk(blockToChunk(user->openInv.x), blockToChunk(user->openInv.z));
+    chunk = ServerInstance->map(user->pos.map)->getChunk(blockToChunk(user->openInv.x), blockToChunk(user->openInv.z));
 
     if (chunk == NULL)
     {
@@ -536,7 +532,7 @@ bool Inventory::windowClick(User* user, int8_t windowID, int16_t slot, int8_t ri
     }
   }
 
-  Item* slotItem;
+  Item* slotItem = NULL;
   furnaceDataPtr tempFurnace;
 
   switch (windowID)
@@ -654,7 +650,7 @@ bool Inventory::windowClick(User* user, int8_t windowID, int16_t slot, int8_t ri
   bool workbenchCrafting = false;
   bool playerCrafting    = false;
 
-  if (windowID == WINDOW_PLAYER && slot >= 5 && slot <= 8 && !shift)
+  if (windowID == WINDOW_PLAYER && slot >= 5 && slot <= 8)
   {
     // Armour slots are a strange case. Only a quantity of one should be allowed, so this must be checked for.
     if (slotItem->getType() == -1 && user->inventoryHolding.getType() > 0)
@@ -762,7 +758,8 @@ bool Inventory::windowClick(User* user, int8_t windowID, int16_t slot, int8_t ri
     }
 
   }
-  else if (user->inventoryHolding.getType() == -1 && !shift)
+  //We are not holding anything, get the item we clicked
+  else if (user->inventoryHolding.getType() == -1)
   {
     //If accessing crafting output slot, remove from input!
     if (slotItem->getType() != -1 && (windowID == WINDOW_WORKBENCH || windowID == WINDOW_PLAYER) && slot == 0)
@@ -797,18 +794,29 @@ bool Inventory::windowClick(User* user, int8_t windowID, int16_t slot, int8_t ri
         }
         playerCrafting = true;
       }
+      
     }
     else
     {
-      user->inventoryHolding.setType(slotItem->getType());
-      user->inventoryHolding.setHealth(slotItem->getHealth());
-      user->inventoryHolding.setCount(slotItem->getCount());
-      if (rightClick == 1)
+      //Shift+click -> items to player inv
+      //ToDo: from player inventory to chest
+      if(!rightClick && shift && isSpace(user, slotItem->getType(), slotItem->getCount()))
       {
-        user->inventoryHolding.decCount(slotItem->getCount() >> 1);
+        addItems(user, slotItem->getType(), slotItem->getCount(), slotItem->getHealth());
+        slotItem->setCount(0);
       }
-
-      slotItem->decCount(user->inventoryHolding.getCount());
+      else
+      {
+        user->inventoryHolding.setType(slotItem->getType());
+        user->inventoryHolding.setHealth(slotItem->getHealth());
+        user->inventoryHolding.setCount(slotItem->getCount());
+        if (rightClick == 1)
+        {
+          user->inventoryHolding.decCount(slotItem->getCount() >> 1);
+        }
+        slotItem->decCount(user->inventoryHolding.getCount());
+      }
+      
       if (slotItem->getCount() == 0)
       {
         slotItem->setHealth(0);
@@ -819,7 +827,7 @@ bool Inventory::windowClick(User* user, int8_t windowID, int16_t slot, int8_t ri
   else
   {
     //Swap items if holding something and clicking another, not with craft slot
-    if (((windowID != WINDOW_WORKBENCH && windowID != WINDOW_PLAYER) || slot != 0) && !shift)
+    if ((windowID != WINDOW_WORKBENCH && windowID != WINDOW_PLAYER) || slot != 0)
     {
       int16_t type = slotItem->getType();
       int8_t count = slotItem->getCount();
@@ -837,99 +845,7 @@ bool Inventory::windowClick(User* user, int8_t windowID, int16_t slot, int8_t ri
   setSlot(user, windowID, slot, slotItem->getType(), slotItem->getCount(), slotItem->getHealth());
 
   //Update item on the cursor
-  if(shift)
-  {
-    switch(windowID)
-    {
-      case WINDOW_PLAYER:
-        // held items / craft section / armor -> main inventory
-        if((36 <= slot && slot <= 44) || (1 <= slot && slot <= 8))
-        {
-  	      uint8_t count = slotItem->getCount();
-
-          // Look out for the item
-          for(uint8_t i = 9; i <= 35 && count; i++)
-          {
-            if(user->inv[i].getType() == slotItem->getType() && user->inv[i].getHealth() == slotItem->getHealth() && user->inv[i].getCount() < 64)
-            {
-              // The discovered stack has sufficient space left
-              if(count + user->inv[i].getCount() <= 64)
-              {
-                user->inv[i].decCount(-count);
-                slotItem->setCount(0);
-                count = 0;
-                break;
-              } 
-              // Make stack complete and look for others
-              else
-              {
-                count -= 64 - user->inv[i].getCount();
-                slotItem->decCount(64 - user->inv[i].getCount());
-                user->inv[i].setCount(64);
-              }
-            }
-          }
-
-          // Look out for an empty slot
-          for(uint8_t i = 9; i <= 35 && count; i++)
-          {
-            if(user->inv[i].getType() == -1)
-            {
-              user->inv[i].setType(slotItem->getType());
-              user->inv[i].setCount(slotItem->getCount());
-              user->inv[i].setHealth(slotItem->getHealth());
-              slotItem->setCount(0);
-              break;
-            }
-          }
-        }
-        // main inventory -> held items
-        else if(9 <= slot && slot <= 35)
-        {
-  	      uint8_t count = slotItem->getCount();
-
-          // Look out for the item
-          for(uint8_t i = 36; i <= 44; i++)
-          {
-            if(user->inv[i].getType() == slotItem->getType() && user->inv[i].getHealth() == slotItem->getHealth() && user->inv[i].getCount() < 64)
-            {
-              // The discovered stack has sufficient space left
-              if(count + user->inv[i].getCount() <= 64)
-              {
-                user->inv[i].decCount(-count);
-                slotItem->decCount(count);
-                count = 0;
-                break;
-              } 
-              // Make stack complete and look for others
-              else
-              {
-                count -= 64 - user->inv[i].getCount();
-                slotItem->decCount(64 - user->inv[i].getCount());
-                user->inv[i].setCount(64);
-              }
-            }
-          }
-
-          // Look out for an empty slot
-          for(uint8_t i = 36; i <= 44 && count; i++)
-          {
-            if(user->inv[i].getType() == -1)
-            {
-              user->inv[i].setType(slotItem->getType());
-              user->inv[i].setCount(slotItem->getCount());
-              user->inv[i].setHealth(slotItem->getHealth());
-              slotItem->setCount(0);
-              break;
-            }
-          }
-        }
-        break;
-        // TODO: shift click for other windows
-    }
-  }
-  else
-	setSlot(user, WINDOW_CURSOR, 0, user->inventoryHolding.getType(), user->inventoryHolding.getCount(), user->inventoryHolding.getHealth());
+  setSlot(user, WINDOW_CURSOR, 0, user->inventoryHolding.getType(), user->inventoryHolding.getCount(), user->inventoryHolding.getHealth());
 
 
   //Check if crafting
@@ -961,7 +877,7 @@ bool Inventory::windowClick(User* user, int8_t windowID, int16_t slot, int8_t ri
   else if (windowID == WINDOW_FURNACE && (slot == 1 || slot == 0))
   {
     tempFurnace->map = user->pos.map;
-    Mineserver::get()->furnaceManager()->handleActivity(tempFurnace);
+    ServerInstance->furnaceManager()->handleActivity(tempFurnace);
   }
 
   /*
@@ -973,7 +889,7 @@ bool Inventory::windowClick(User* user, int8_t windowID, int16_t slot, int8_t ri
       {
         for(uint32_t i = 0; i < otherUsers->size(); i++)
         {
-          (*otherUsers)[i]->buffer << Protocol::setSlot( (int8_t)windowID, (int16_t)slot, (int16_t)slotItem->type );
+          (*otherUsers)[i]->buffer << (int8_t)PACKET_SET_SLOT << (int8_t)windowID << (int16_t)slot << (int16_t)slotItem->type;
           if(slotItem->type != -1)
           {
             (*otherUsers)[i]->buffer << (int8_t)slotItem->count << (int16_t)slotItem->health;
@@ -990,7 +906,7 @@ bool Inventory::windowClick(User* user, int8_t windowID, int16_t slot, int8_t ri
         {
           if((*otherUsers)[i] != user)
           {
-            (*otherUsers)[i]->buffer << Protocol::setSlot( (int8_t)windowID, (int16_t)slot, (int16_t)slotItem->type );
+            (*otherUsers)[i]->buffer << (int8_t)PACKET_SET_SLOT << (int8_t)windowID << (int16_t)slot << (int16_t)slotItem->type;
             if(slotItem->type != -1)
             {
               (*otherUsers)[i]->buffer << (int8_t)slotItem->count << (int16_t)slotItem->health;
@@ -1008,7 +924,7 @@ bool Inventory::windowClick(User* user, int8_t windowID, int16_t slot, int8_t ri
         {
           if((*otherUsers)[i] != user)
           {
-            (*otherUsers)[i]->buffer << Protocol::setSlot( (int8_t)windowID, (int16_t)slot, (int16_t)slotItem->type );
+            (*otherUsers)[i]->buffer << (int8_t)PACKET_SET_SLOT << (int8_t)windowID << (int16_t)slot << (int16_t)slotItem->type;
             if(slotItem->type != -1)
             {
               (*otherUsers)[i]->buffer << (int8_t)slotItem->count << (int16_t)slotItem->health;
@@ -1028,7 +944,7 @@ bool Inventory::windowClick(User* user, int8_t windowID, int16_t slot, int8_t ri
 
 bool Inventory::windowOpen(User* user, int8_t type, int32_t x, int32_t y, int32_t z)
 {
-  sChunk* chunk = Mineserver::get()->map(user->pos.map)->getChunk(blockToChunk(x), blockToChunk(z));
+  sChunk* chunk = ServerInstance->map(user->pos.map)->getChunk(blockToChunk(x), blockToChunk(z));
   if (chunk == NULL)
   {
     return false;
@@ -1055,29 +971,31 @@ bool Inventory::windowOpen(User* user, int8_t type, int32_t x, int32_t y, int32_
       if(_chestData == NULL)
         break;
 
+      user->buffer << (int8_t)PACKET_OPEN_WINDOW << (int8_t)type << (int8_t)INVENTORYTYPE_CHEST;
       if(_chestData->large())
       {
-        user->buffer << Protocol::openWindow( (int8_t)type, (int8_t)INVENTORYTYPE_CHEST, std::string("Large Chest"), (int8_t)(_chestData->size()) );
+        user->buffer << std::string("Large chest");
       } else {
-        user->buffer << Protocol::openWindow( (int8_t)type, (int8_t)INVENTORYTYPE_CHEST, std::string("Chest"), (int8_t)(_chestData->size()) );
+        user->buffer << std::string("Chest");
       }
-      // size.. not a very good idea. lets just hope this will only return 27 or 54
+      user->buffer << (int8_t)(_chestData->size()); // size.. not a very good idea. lets just hope this will only return 27 or 54
 
       for (size_t j = 0; j < _chestData->size(); j++)
       {
         if ((*_chestData->items())[j]->getType() != -1)
         {
-          user->buffer << Protocol::setSlot( (int8_t)type, (int16_t)j, (int16_t)(*_chestData->items())[j]->getType(),
-                                             (int8_t)((*_chestData->items())[j]->getCount()),
-                                             (int16_t)(*_chestData->items())[j]->getHealth() );
+          Packet packet = Protocol::setSlotHeader(type, j);
+          ItemPtr item = (*_chestData->items())[j];
+          packet << Protocol::slot(item->getType(), item->getCount(), item->getHealth());
+          user->buffer << packet;
         }
       }
     }
     break;
 
   case WINDOW_WORKBENCH:
-    user->buffer <<  Protocol::openWindow( (int8_t)WINDOW_WORKBENCH, (int8_t)INVENTORYTYPE_WORKBENCH,
-                                           std::string("Workbench"), (int8_t)0 );
+    user->buffer << (int8_t)PACKET_OPEN_WINDOW << (int8_t)WINDOW_WORKBENCH  << (int8_t)INVENTORYTYPE_WORKBENCH;
+    user->buffer << std::string("Workbench") << (int8_t)0;
 
     for (uint32_t i = 0; i < openWorkbenches.size(); i++)
     {
@@ -1089,9 +1007,11 @@ bool Inventory::windowOpen(User* user, int8_t type, int32_t x, int32_t y, int32_
         {
           if (openWorkbenches[i]->workbench[j].getType() != -1)
           {
-            user->buffer << Protocol::setSlot( (int8_t)WINDOW_WORKBENCH, (int16_t)j, (int16_t)openWorkbenches[i]->workbench[j].getType(),
-                                               (int8_t)(openWorkbenches[i]->workbench[j].getCount()),
-                                               (int16_t)openWorkbenches[i]->workbench[j].getHealth() );
+            Packet packet = Protocol::setSlotHeader(WINDOW_WORKBENCH, j);
+            packet << Protocol::slot(openWorkbenches[i]->workbench[j].getType(),
+            openWorkbenches[i]->workbench[j].getCount(),
+            openWorkbenches[i]->workbench[j].getHealth());
+            user->buffer << packet;
           }
         }
         break;
@@ -1100,7 +1020,8 @@ bool Inventory::windowOpen(User* user, int8_t type, int32_t x, int32_t y, int32_
     break;
   case WINDOW_FURNACE:
 
-  user->buffer <<  Protocol::openWindow(  (int8_t)WINDOW_FURNACE, (int8_t)INVENTORYTYPE_FURNACE, std::string("Furnace"), (int8_t)0 );
+    user->buffer << (int8_t)PACKET_OPEN_WINDOW << (int8_t)WINDOW_FURNACE  << (int8_t)INVENTORYTYPE_FURNACE;
+    user->buffer << std::string("Furnace") << (int8_t)0;
 
     for (uint32_t i = 0; i < chunk->furnaces.size(); i++)
     {
@@ -1110,13 +1031,13 @@ bool Inventory::windowOpen(User* user, int8_t type, int32_t x, int32_t y, int32_
         {
           if (chunk->furnaces[i]->items[j].getType() != -1)
           {
-            user->buffer << Protocol::setSlot( (int8_t)WINDOW_FURNACE, (int16_t)j, (int16_t)chunk->furnaces[i]->items[j].getType(),
-                                               (int8_t)(chunk->furnaces[i]->items[j].getCount()),
-                                               (int16_t)chunk->furnaces[i]->items[j].getHealth() );
+            Packet packet = Protocol::setSlotHeader(WINDOW_FURNACE, j);
+            Item& item = chunk->furnaces[i]->items[j];
+            packet << Protocol::slot(item.getType(), item.getCount(), item.getHealth());
           }
         }
-        user->buffer << Protocol::updateProgressBar( (int8_t)WINDOW_FURNACE, (int16_t)0, (int16_t)(chunk->furnaces[i]->cookTime * 18) );
-        user->buffer << Protocol::updateProgressBar( (int8_t)WINDOW_FURNACE, (int16_t)1, (int16_t)(chunk->furnaces[i]->burnTime * 3) );
+        user->buffer << (int8_t)PACKET_PROGRESS_BAR << (int8_t)WINDOW_FURNACE << (int16_t)0 << (int16_t)(chunk->furnaces[i]->cookTime * 18);
+        user->buffer << (int8_t)PACKET_PROGRESS_BAR << (int8_t)WINDOW_FURNACE << (int16_t)1 << (int16_t)(chunk->furnaces[i]->burnTime * 3);
         break;
       }
     }
@@ -1154,58 +1075,76 @@ bool Inventory::isSpace(User* user, int16_t itemID, char count)
 
 
 bool Inventory::addItems(User* user, int16_t itemID, int16_t count, int16_t health)
-{ 
-  // Look out for the item, at first at the held items
-  for(uint8_t i = 36; count; i++)
-  {
-    Item* slot = &user->inv[i];
+{
+  bool checkingTaskbar = true;
+  int checkdir=1;
 
-    if(slot->getType() == itemID && slot->getHealth() == health && slot->getCount() < 64)
+  //First loop and check if we can pile this up with existing blocks
+  for (uint8_t i = 36 - 9; i >= 9 || checkingTaskbar; i+=checkdir)
+  {
+    //First, the "task bar"
+    if (i == 36)
     {
-      // The discovered stack has sufficient space left
-      if(count + slot->getCount() <= 64)
+      checkingTaskbar = false;
+      i = 35-9;
+      checkdir=-1;
+    }
+
+    //The main slots are in range 9-44
+    Item* slot = &user->inv[i + 9];
+
+    //If same item type
+    if (slot->getType() == itemID)
+    {
+      if (slot->getHealth() == health)
       {
-        slot->decCount(-count);
-        count = 0;
-        break;
-      } 
-      // Make stack complete and look for others
-      else
-      {
-        count -= 64 - slot->getCount();
-        slot->setCount(64);
+        //Put to the stack
+        if (64 - slot->getCount() >= count)
+        {
+          slot->setType(itemID);
+          slot->decCount(-count);
+          count--;
+          break;
+        }
+        //Put some of the items to this stack and continue searching for space
+        else if (64 - slot->getCount() > 0)
+        {
+          slot->setType(itemID);
+          count -= 64 - slot->getCount();
+          slot->setCount(64);
+        }
       }
     }
-
-    // Jump to main inventory
-    if(i == 44)
-      i = 8;
-
-    // All slots have been checked, exit loop
-    if(i == 35)
-      break;
   }
 
-  // Look out for an empty slot, at first at the held items
-  for(uint8_t i = 36; count; i++)
+  checkdir=1;
+
+  //If more items
+  if(count)
   {
-    Item* slot = &user->inv[i];
-
-    if(slot->getType() == -1)
+    //Check for empty slots
+    for (uint8_t i = 36 - 9; i >= 9 || checkingTaskbar; i+=checkdir)
     {
-      slot->setType(itemID);
-      slot->setCount(count);
-      slot->setHealth(health);
-      break;
+      //First, the "task bar"
+      if (i == 36)
+      {
+        checkingTaskbar = false;
+        i = 35-9;
+        checkdir=-1;
+      }
+
+      //The main slots are in range 9-44
+      Item* slot = &user->inv[i + 9];
+
+      //If slot empty, put item there
+      if (slot->getType() == -1)
+      {
+        slot->setType(itemID);
+        slot->setCount(int8_t(count));
+        slot->setHealth(health);
+        break;
+      }
     }
-
-    // Jump to main inventory
-    if(i == 44)
-      i = 8;
-
-    // All slots have been checked, exit loop
-    if(i == 35)
-      break;
   }
 
   return true;
@@ -1216,9 +1155,9 @@ bool Inventory::windowClose(User* user, int8_t windowID)
   //If still holding something, dump the items to ground
   if (user->inventoryHolding.getType() != -1)
   {
-    Mineserver::get()->map(user->pos.map)->createPickupSpawn((int)user->pos.x, (int)user->pos.y, (int)user->pos.z,
+    ServerInstance->map(user->pos.map)->createPickupSpawn((int)user->pos.x, (int)user->pos.y, (int)user->pos.z,
         user->inventoryHolding.getType(), user->inventoryHolding.getCount(),
-        user->inventoryHolding.getHealth(), user, false);
+        user->inventoryHolding.getHealth(), user);
     user->inventoryHolding.setType(-1);
   }
 
@@ -1243,8 +1182,6 @@ bool Inventory::onwindowOpen(User* user, int8_t type, int32_t x, int32_t y, int3
   {
   case WINDOW_CHEST:
   case WINDOW_LARGE_CHEST:
-    //Chest Open Animation
-    user->buffer << Protocol::blockAction( x, y, z, 1, 1 );
     pinv = &openChests;
     break;
   case WINDOW_FURNACE:
@@ -1293,8 +1230,6 @@ bool Inventory::onwindowClose(User* user, int8_t type, int32_t x, int32_t y, int
   {
   case WINDOW_CHEST:
   case WINDOW_LARGE_CHEST:
-    //Chest Close Animation
-    user->buffer << Protocol::blockAction( x, y, z, 1, 0 );
     pinv = &openChests;
     break;
   case WINDOW_FURNACE:
@@ -1331,9 +1266,9 @@ bool Inventory::onwindowClose(User* user, int8_t type, int32_t x, int32_t y, int
               {
                 if (inv[i]->workbench[slotNumber].getType() != -1)
                 {
-                  Mineserver::get()->map(user->pos.map)->createPickupSpawn((int)user->pos.x, (int)user->pos.y, (int)user->pos.z,
+                  ServerInstance->map(user->pos.map)->createPickupSpawn((int)user->pos.x, (int)user->pos.y, (int)user->pos.z,
                       inv[i]->workbench[slotNumber].getType(), inv[i]->workbench[slotNumber].getCount(),
-                      inv[i]->workbench[slotNumber].getHealth(), user, false);
+                      inv[i]->workbench[slotNumber].getHealth(), user);
                 }
               }
             }
@@ -1441,16 +1376,8 @@ bool Inventory::doCraft(Item* slots, int8_t width, int8_t height)
 
 bool Inventory::setSlot(User* user, int8_t windowID, int16_t slot, int16_t itemID, int8_t count, int16_t health)
 {
-  //Mineserver::get()->logger()->log(1,"Setslot: " + dtos(slot) + " to " + dtos(itemID) + " (" + dtos(count) + ") health: " + dtos(health));
-  if (itemID != -1)
-  {
-    user->buffer << Protocol::setSlot( (int8_t)windowID, (int16_t)slot, (int16_t)itemID, (int8_t)count, (int16_t)health );
-  }
-  else
-  {
-    user->buffer << Protocol::setSlot( (int8_t)windowID, (int16_t)slot, (int16_t)itemID );
-  }
-
+  //ServerInstance->logger()->log(1,"Setslot: " + dtos(slot) + " to " + dtos(itemID) + " (" + dtos(count) + ") health: " + dtos(health));
+  user->buffer << Protocol::setSlotHeader(windowID, slot) << Protocol::slot(itemID, count, health);
   return true;
 }
 
@@ -1540,7 +1467,7 @@ int16_t Inventory::itemHealth(int16_t itemID, int8_t block, bool& rightUse)
     case BLOCK_DIAMOND_ORE:
     case BLOCK_OBSIDIAN:
     case BLOCK_GLOWSTONE:
-    case BLOCK_NETHERRACK:
+    case BLOCK_NETHERSTONE:
     case BLOCK_WOODEN_STAIRS:
     case BLOCK_COBBLESTONE_STAIRS:
     case BLOCK_IRON_DOOR:

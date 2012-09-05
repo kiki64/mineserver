@@ -25,47 +25,52 @@
   SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "../mineserver.h"
-#include "../map.h"
-#include "../logger.h"
+#include "mineserver.h"
+#include "map.h"
+#include "logger.h"
+#include "redstoneSimulation.h"
+#include "vec.h"
 
 #include "redstone.h"
 
 
-void BlockRedstone::onStartedDigging(User* user, int8_t status, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+void BlockRedstone::onStartedDigging(User* user, int8_t status, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
 
 }
 
-void BlockRedstone::onDigging(User* user, int8_t status, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+void BlockRedstone::onDigging(User* user, int8_t status, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
 
 }
 
-void BlockRedstone::onStoppedDigging(User* user, int8_t status, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+void BlockRedstone::onStoppedDigging(User* user, int8_t status, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
 
 }
 
-bool BlockRedstone::onBroken(User* user, int8_t status, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+bool BlockRedstone::onBroken(User* user, int8_t status, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
   uint8_t block;
   uint8_t meta;
-  Mineserver::get()->map(map)->getBlock(x, y, z, &block, &meta);
+  ServerInstance->map(map)->getBlock(x, y, z, &block, &meta);
 
-  Mineserver::get()->map(map)->setBlock(x, y, z, char(BLOCK_AIR), 0);
-  Mineserver::get()->map(map)->sendBlockChange(x, y, z, char(BLOCK_AIR), 0);
+  ServerInstance->map(map)->setBlock(x, y, z, char(BLOCK_AIR), 0);
+  ServerInstance->map(map)->sendBlockChange(x, y, z, char(BLOCK_AIR), 0);
 
-  spawnBlockItem(x, y, z, map, uint8_t(ITEM_REDSTONE), 0);
+  spawnBlockItem(x, y, z, map, uint8_t(BLOCK_REDSTONE_WIRE), 0);
+
+  ServerInstance->redstone(map)->addSimulation(vec(x,y,z));
+
   return false;
 }
 
-void BlockRedstone::onNeighbourBroken(User* user, int16_t oldblock, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+void BlockRedstone::onNeighbourBroken(User* user, int16_t oldblock, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
   uint8_t block;
   uint8_t meta;
 
-  if (!Mineserver::get()->map(map)->getBlock(x, y, z, &block, &meta))
+  if (!ServerInstance->map(map)->getBlock(x, y, z, &block, &meta))
   {
     return;
   }
@@ -73,18 +78,18 @@ void BlockRedstone::onNeighbourBroken(User* user, int16_t oldblock, int32_t x, i
   if (isBlockEmpty(x, y - 1, z, map))
   {
     // Break torch and spawn torch item
-    Mineserver::get()->map(map)->sendBlockChange(x, y, z, BLOCK_AIR, 0);
-    Mineserver::get()->map(map)->setBlock(x, y, z, BLOCK_AIR, 0);
+    ServerInstance->map(map)->sendBlockChange(x, y, z, BLOCK_AIR, 0);
+    ServerInstance->map(map)->setBlock(x, y, z, BLOCK_AIR, 0);
     spawnBlockItem(x, y, z, map, block);
   }
 }
 
-bool BlockRedstone::onPlace(User* user, int16_t newblock, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+bool BlockRedstone::onPlace(User* user, int16_t newblock, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
   uint8_t block;
   uint8_t meta;
 
-  if (!Mineserver::get()->map(map)->getBlock(x, y, z, &block, &meta))
+  if (!ServerInstance->map(map)->getBlock(x, y, z, &block, &meta))
   {
     revertBlock(user, x, y, z, map);
     return true;
@@ -113,22 +118,25 @@ bool BlockRedstone::onPlace(User* user, int16_t newblock, int32_t x, int8_t y, i
   newblock = 55;
   meta = 0;
 
-  Mineserver::get()->map(map)->setBlock(x, y, z, char(newblock), meta);
-  Mineserver::get()->map(map)->sendBlockChange(x, y, z, char(newblock), meta);
+  ServerInstance->map(map)->setBlock(x, y, z, char(newblock), meta);
+  ServerInstance->map(map)->sendBlockChange(x, y, z, char(newblock), meta);
+
+  ServerInstance->redstone(map)->addSimulation(vec(x,y,z));
+
   return false;
 }
 
-void BlockRedstone::onNeighbourPlace(User* user, int16_t newblock, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+void BlockRedstone::onNeighbourPlace(User* user, int16_t newblock, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
 
 }
 
-void BlockRedstone::onReplace(User* user, int16_t newblock, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+void BlockRedstone::onReplace(User* user, int16_t newblock, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
 
 }
 
-void BlockRedstone::onNeighbourMove(User* user, int16_t oldblock, int32_t x, int8_t y, int32_t z, int map, int8_t direction)
+void BlockRedstone::onNeighbourMove(User* user, int16_t oldblock, int32_t x, int16_t y, int32_t z, int map, int8_t direction)
 {
 
 }

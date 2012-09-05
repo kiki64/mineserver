@@ -88,7 +88,7 @@ void Tree::generateBranches(TrunkPtr wrap)
   uint8_t y = wrap->_y;
   int32_t z = wrap->_z;
 
-  uint32_t schanse = BRANCHING_CHANCE;
+  //uint32_t schanse = BRANCHING_CHANCE;
 
   if (uniform01() > 1.0 - (1.0 / BRANCHING_CHANCE))
   {
@@ -154,7 +154,7 @@ void Tree::generateCanopy()
             t_posy = m_Branch[i]->_y + yi;
             t_posz = m_Branch[i]->_z + zi;
 
-            if (Mineserver::get()->map(_map)->getBlock(t_posx, t_posy, t_posz, &block, &meta, true) && block == BLOCK_AIR)
+            if (ServerInstance->map(_map)->getBlock(t_posx, t_posy, t_posz, &block, &meta, true) && block == BLOCK_AIR)
             {
               Canopy u(t_posx, t_posy, t_posz, _map, canopy_type);
             }
