@@ -235,12 +235,12 @@ void timer200Function()
         double nx, nz;
         nx = x /16;
         nz = z /16;
-        mineserver->user.teleportMap(name, 1);
+        mineserver->user.teleportMap(name, nx,y+1,nz,1);
       }else if(map==1){
         double nx, nz;
         nx = x * 16;
         nz = z * 16;
-        mineserver->user.teleportMap(name, 0);
+        mineserver->user.teleportMap(name, nx,y+1,nz,0);
       }
       // You're on another world? FIND YOUR OWN WAY BACK
     }

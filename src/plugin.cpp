@@ -193,7 +193,7 @@ bool Plugin::loadPlugin(const std::string& name, const std::string& path, std::s
     int statr = stat(file.c_str(), &st);
     if ((statr == 0) && !(st.st_mode & S_IFDIR))
     {
-      //LOG(INFO, "Plugin", "Loading: " + file);
+      LOG(INFO, "Plugin", "Loading: " + file);
       lhandle = LIBRARY_LOAD(file.c_str());
     }
     else

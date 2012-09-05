@@ -167,11 +167,10 @@ int defaultDamage(int item)
 
 void spawn()
 {
-  //TODO: make the getTime below depend on what map we are in.
   if (MyMobs.size() < maxMobs &&
       time(NULL)-lastSpawn > 2 &&
       mineserver->user.getCount() > 0 &&
-      mineserver->map.getTime(0) <= 18000)
+      mineserver->map.getTime() <= 18000)
   {
     int randomPlayer = mineserver->tools.uniformInt(0, mineserver->user.getCount() - 1);
     double x,y,z;
@@ -316,11 +315,12 @@ void timer200Function()
       float incx = sin((yaw*PI)/180)* forward;
       x-=incx; z+=incz;
 
-      fallMob(&x,&y,&z,w); // Even if they dont move, make them fall
       if(moveSuitable(&x,&y,&z,w))
       {
+        fallMob(&x,&y,&z,w);
         mineserver->mob.moveMobW(MyMobs[i]->ID,x,y,z,w);
       }
+      fallMob(&x,&y,&z,w); // Even if they dont move, make them fall
     }
     mineserver->mob.setLook(MyMobs[i]->ID, yaw, pitch, head_yaw);
 

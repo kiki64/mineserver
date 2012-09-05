@@ -144,25 +144,6 @@ bool BlockTorch::onPlace(User* user, int16_t newblock, int32_t x, int16_t y, int
     revertBlock(user, x, y, z, map);
     return true;
   }
-  
-  switch (direction)
-  {
-  case BLOCK_TOP:
-    direction = BLOCK_BOTTOM;
-    break;
-  case BLOCK_EAST:
-    direction = BLOCK_TOP;
-    break;
-  case BLOCK_WEST:
-    direction = BLOCK_NORTH;
-    break;
-  case BLOCK_NORTH:
-    direction = BLOCK_WEST;
-    break;
-  case BLOCK_SOUTH:
-    direction = BLOCK_SOUTH;
-    break;
-  }
 
   switch(direction)
   {

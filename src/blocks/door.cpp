@@ -199,79 +199,24 @@ bool BlockDoor::onPlace(User* user, int16_t newblock, int32_t x, int16_t y, int3
 
   direction = user->relativeToBlock(x, y, z);
 
-  //Double Doors
-  int32_t diffx = x - user->pos.x;
-  int32_t diffz = z - user->pos.z;
-
-  if( Mineserver::get()->map(map)->getBlock(x, y, z - 1, &oldblock, &oldmeta) && (oldblock == BLOCK_WOODEN_DOOR || oldblock == BLOCK_IRON_DOOR))
+  switch (direction)
   {
-    if( diffx < 0 )
-    {
-      if( !isAlreadyDoubleDoor(x, y, z - 1, map, BLOCK_EAST) )
-      {
-        direction = BLOCK_NORTH;
-      }
-    }
-    else
-    {
-      if( !isAlreadyDoubleDoor(x, y, z - 1, map, BLOCK_WEST) )
-      {
-        direction = BLOCK_SOUTH;
-      }
-    }
-  }
-  else if( Mineserver::get()->map(map)->getBlock(x, y, z + 1, &oldblock, &oldmeta) && (oldblock == BLOCK_WOODEN_DOOR || oldblock == BLOCK_IRON_DOOR))
-  {
-    if( diffx < 0 )
-    {
-      if( !isAlreadyDoubleDoor(x, y, z + 1, map, BLOCK_NORTH ) )
-      {
-        direction = BLOCK_EAST;
-      }
-    }
-    else
-    {
-      if( !isAlreadyDoubleDoor(x, y, z + 1, map, BLOCK_SOUTH ) )
-      {
-        direction = BLOCK_WEST;
-      }
-    }
-  }
-
-
-  else if( Mineserver::get()->map(map)->getBlock(x - 1, y, z, &oldblock, &oldmeta) && (oldblock == BLOCK_WOODEN_DOOR || oldblock == BLOCK_IRON_DOOR))
-  {
-    if( diffz < 0 )
-    {
-      if( !isAlreadyDoubleDoor(x - 1, y, z, map, BLOCK_SOUTH ) )
-      {
-        direction = BLOCK_NORTH;
-      }
-    }
-    else
-    {
-      if( !isAlreadyDoubleDoor(x - 1, y, z, map, BLOCK_WEST ) )
-      {
-        direction = BLOCK_EAST;
-      }
-    }
-  }
-  else if( Mineserver::get()->map(map)->getBlock(x + 1, y, z, &oldblock, &oldmeta) && (oldblock == BLOCK_WOODEN_DOOR || oldblock == BLOCK_IRON_DOOR))
-  {
-    if( diffz < 0 )
-    {
-      if( !isAlreadyDoubleDoor(x + 1, y, z, map, BLOCK_NORTH ) )
-      {
-        direction = BLOCK_SOUTH;
-      }
-    }
-    else
-    {
-      if( !isAlreadyDoubleDoor(x + 1, y, z, map, BLOCK_EAST ) )
-      {
-        direction = BLOCK_WEST;
-      }
-    }
+  case BLOCK_EAST:
+  //LOG(INFO, "Map", "EAST");
+    direction = BLOCK_EAST;
+    break;
+  case BLOCK_WEST:
+  //LOG(INFO, "Map", "WEST");
+    direction = BLOCK_WEST;
+    break;
+  case BLOCK_NORTH:
+  //LOG(INFO, "Map", "NORTH");
+    direction = BLOCK_SOUTH;
+    break;
+  case BLOCK_SOUTH:
+  //LOG(INFO, "Map", "SOUTH");
+    direction = BLOCK_NORTH;
+    break;
   }
 
   ServerInstance->map(map)->setBlock(x, y, z, (char)newblock, direction);
@@ -336,68 +281,4 @@ bool BlockDoor::onInteract(User* user, int32_t x, int16_t y, int32_t z, int map)
   }
  }
   return false;
-}
-
-bool BlockDoor::isAlreadyDoubleDoor(int32_t x, int8_t y, int32_t z, int map, int8_t changeTo)
-{
-  uint8_t oldblock, oldmeta, newblock, newmeta;
-
-  //Get first door
-  Mineserver::get()->map(map)->getBlock(x, y, z, &oldblock, &oldmeta);
-
-  //Direction to check
-  switch (oldmeta)
-  {
-  case BLOCK_EAST:
-    ++x;
-    break;
-  case BLOCK_WEST:
-    --x;
-    break;
-  case BLOCK_NORTH:
-    --z;
-    break;
-  case BLOCK_SOUTH:
-    ++z;
-    break;
-  }
-
-  //Get Second Door
-  if( Mineserver::get()->map(map)->getBlock(x, y, z, &newblock, &newmeta) && (newblock == BLOCK_WOODEN_DOOR || newblock == BLOCK_IRON_DOOR) ) // check direction to see if is a real double door
-  {
-    return true;
-  }
-  else
-  {
-    // Go back to door next to the door you placed.
-    switch (oldmeta)
-    {
-    case BLOCK_EAST:
-      --x;
-      break;
-    case BLOCK_WEST:
-      ++x;
-      break;
-    case BLOCK_NORTH:
-      ++z;
-      break;
-    case BLOCK_SOUTH:
-      --z;
-      break;
-    }
-
-    if( newmeta != changeTo )
-    {
-      Mineserver::get()->map(map)->setBlock(x, y, z, (char)oldblock, changeTo);
-      Mineserver::get()->map(map)->sendBlockChange(x, y, z, (char)oldblock, changeTo);
-
-        /* Get correct direction for top of the door */
-      changeTo ^= 8;
-
-      Mineserver::get()->map(map)->setBlock(x, y + 1, z, (char)oldblock, changeTo);
-      Mineserver::get()->map(map)->sendBlockChange(x, y + 1, z, (char)oldblock, changeTo);
-    }
-
-    return false;
-  }
 }

@@ -120,10 +120,6 @@ public:
   // Map seed
   int64_t mapSeed;
 
-  int8_t mapDimension; // Map Dimension - Ender, Normal, Nether
-  int8_t mapMode; // Map Mode - Survival / Creative
-  int16_t mapHeight;
-
   // Get pointer to struct
   sChunk* getMapData(int x, int z, bool generate = true);
 
@@ -189,7 +185,7 @@ public:
   }
 
   bool sendPickupSpawn(spawnedItem item);
-  void createPickupSpawn(int x, int y, int z, int type, int count, int health, User* user, bool thrown);
+  void createPickupSpawn(int x, int y, int z, int type, int count, int health, User* user);
 
   bool sendProjectileSpawn(User* user, int8_t projID);
 

@@ -107,6 +107,4 @@ inline int8_t angleToByte(float angle)
 uint64_t microTime();
 
 
-std::string itoa(int value, int base);
-
 #endif
