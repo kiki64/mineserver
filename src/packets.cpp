@@ -69,7 +69,7 @@
 
 void PacketHandler::init()
 {
-  packets[PACKET_KEEP_ALIVE]               = Packets(0, &PacketHandler::keep_alive);
+  packets[PACKET_KEEP_ALIVE]               = Packets(4, &PacketHandler::keep_alive);
   packets[PACKET_LOGIN_REQUEST]            = Packets(PACKET_VARIABLE_LEN, &PacketHandler::login_request);
   packets[PACKET_HANDSHAKE]                = Packets(PACKET_VARIABLE_LEN, &PacketHandler::handshake);
   packets[PACKET_CHAT_MESSAGE]             = Packets(PACKET_VARIABLE_LEN, &PacketHandler::chat_message);
@@ -538,7 +538,9 @@ int PacketHandler::inventory_change(User* user)
 // Keep Alive (http://mc.kev009.com/wiki/Protocol#Keep_Alive_.280x00.29)
 int PacketHandler::keep_alive(User* user)
 {
-  //No need to do anything
+  int32_t keep_alive_id;
+
+  user->buffer >> keep_alive_id;
   user->buffer.removePacket();
   return PACKET_OK;
 }
@@ -581,14 +583,14 @@ int PacketHandler::handshake(User* user)
   // If version is not the current version
   if (version != PROTOCOL_VERSION)
   {
-    user->kick(ServerInstance->config()->sData("strings.wrong_protocol"));
+    user->kick(ServerInstance->config()->sData("locale.wrong_protocol"));
     return PACKET_OK;
   }
 
   // If userlimit is reached
-  if ((int)User::all().size() > ServerInstance->config()->iData("system.user_limit"))
+  if ((int)User::all().size() > ServerInstance->m_user_limit)
   {
-    user->kick(ServerInstance->config()->sData("strings.server_full"));
+    user->kick(ServerInstance->config()->sData("locale.server_full"));
     return PACKET_OK;
   }
 
@@ -1511,7 +1513,7 @@ int PacketHandler::use_entity(User* user)
 }
 
 
-// Keep Alive (http://mc.kev009.com/wiki/Protocol)
+// Server List Ping
 int PacketHandler::ping(User* user)
 {
   //Reply with server info
@@ -1521,7 +1523,8 @@ int PacketHandler::ping(User* user)
   line << ServerInstance->config()->sData("system.server_name") << "§"
        << ServerInstance->getLoggedUsersCount() << "§"
        << ServerInstance->config()->iData("system.user_limit");
-  user->kick(line.str());
+  LOG(INFO, "Packets", "Sending server list ping.");
+  user->buffer << Protocol::kick(line.str());
 
   return PACKET_OK;
 }

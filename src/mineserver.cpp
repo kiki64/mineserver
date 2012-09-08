@@ -348,10 +348,26 @@ Mineserver::Mineserver(int args, char **argarray)
   m_mapGenNames.push_back(biomegen);
   m_mapGenNames.push_back(eximgen);
 
+  // Saving variables
   m_saveInterval = m_config->iData("map.save_interval");
 
-  m_only_helmets = m_config->bData("system.armour.helmet_strict");
+  // Gameplay variables
+  m_difficulty = m_config->iData("system.difficulty");
+  m_gamemode = m_config->iData("system.gamemode");
+  m_hardcore_mode_enabled = m_config->bData("system.hardcore_mode");
+  m_level_type = m_config->sData("system.level_type");
+  m_max_build_height = m_config->iData("system.max_build_height");
   m_pvp_enabled = m_config->bData("system.pvp.enabled");
+  m_spawn_animals = m_config->bData("system.spawn_animals");
+  m_spawn_monsters = m_config->bData("system.spawn_monsters");
+  m_spawn_nps = m_config->bData("system.spawn_npcs");
+  m_texture_pack = m_config->sData("system.texture_pack");
+  m_user_limit = m_config->iData("system.user_limit");
+  m_view_distance = m_config->iData("system.view_distance");
+  m_whitelist_enabled = m_config->bData("system.whitelist");
+
+  // Extra gameplay variables - non vanilla
+  m_only_helmets = m_config->bData("system.armour.helmet_strict");
   m_damage_enabled = m_config->bData("system.damage.enabled");
 
   const char* key = "map.storage.nbt.directories"; // Prefix for worlds config
@@ -695,14 +711,16 @@ bool Mineserver::run()
       }
 
       // If users, ping them
-      if (!User::all().empty())
+      for (std::set<User*>::const_iterator it = ServerInstance->users().begin(); it != ServerInstance->users().end(); ++it)
       {
-        // Send server time and keepalive
-        Packet pkt;
-        pkt << Protocol::timeUpdate(m_map[0]->mapTime);
-        pkt << Protocol::keepalive(0);
-        pkt << Protocol::playerlist();
-        (*User::all().begin())->sendAll(pkt);        
+        (*it)->buffer << Protocol::keepAlive(0);
+        (*it)->buffer << Protocol::timeUpdate(m_map[(*it)->pos.map]->mapTime);
+        
+        if((*it)->nick.length() > 0)
+        {
+          (*it)->buffer << Protocol::playerListItem((*it)->nick, 1, 0); //ToDo: Add admin/moderator coloring
+        }
+
       }
 
       //Check for tree generation from saplings
@@ -758,11 +776,6 @@ bool Mineserver::run()
         }
       }
 
-      for (std::set<User*>::const_iterator it = users().begin(); it != users().end(); ++it)
-      {
-        (*it)->pushMap();
-        (*it)->popMap();
-      }
 
       // Check for Furnace activity
       furnaceManager()->update();

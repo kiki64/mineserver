@@ -33,7 +33,7 @@ Source: (http://www.minecraftwiki.net/wiki/Entity)
 #ifndef _ENTITY_H
 #define _ENTITY_H
 
-#include "../constants.h"
+#include "../include/constants.h"
 
 struct entityPosition
 {

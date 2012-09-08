@@ -180,12 +180,12 @@ void Chat::handleCommand(User* user, std::string msg, const std::string& timeSta
     param[i] = (char*)cmd[i].c_str();
   }
 
-  // If hardcoded auth command!
-  if (command == "auth" && param[0] == ServerInstance->config()->sData("system.admin.password"))
+  // If hardcoded auth command!  TODO: Figure out if this is a command we want to support.  Finish the command with origin checks.
+  if(command == "auth" && cmd.size() >= 1 && cmd[0] == ServerInstance->config()->sData("system.admin.password") )
   {
-    user->serverAdmin = true;
-    msg = MC_COLOR_RED + "[!] " + MC_COLOR_GREEN + "You have been authed as admin!";
-    sendMsg(user, msg, USER);
+      user->serverAdmin = true;
+      msg = MC_COLOR_RED + "[!] " + MC_COLOR_GREEN + "You have been authed as admin!";
+      sendMsg(user, msg, USER);
   }
   else
   {

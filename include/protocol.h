@@ -300,25 +300,17 @@ class Protocol
       return ret;
     }
 
-    static Packet keepalive(int32_t time)
+    static Packet keepAlive(int32_t time)
     {
       Packet ret;
-      ret << (int8_t)PACKET_KEEP_ALIVE << (int32_t)time;
+      ret << (int8_t)PACKET_KEEP_ALIVE << time;
       return ret;
     }
 
-    static Packet playerlist()
+    static Packet playerListItem( std::string nick, bool online, int16_t latency)
     {
       Packet ret;
-
-      //ToDo: Add admin/moderator coloring
-      for (std::set<User*>::const_iterator it = ServerInstance->users().begin(); it != ServerInstance->users().end(); ++it)
-      { 
-        if((*it)->nick.length() > 0)
-        {
-          ret << (int8_t)PACKET_PLAYER_LIST_ITEM << (*it)->nick << (int8_t)1 << (int16_t)0;
-        }
-      }      
+      ret << (int8_t)PACKET_PLAYER_LIST_ITEM << nick << (int8_t)online << latency; 
       return ret;
     }
 
@@ -333,7 +325,7 @@ class Protocol
     static Packet blockAction( int32_t x, int16_t y, int32_t z, int8_t instrument, int8_t pitch, int16_t blockID )
     {
       Packet ret;
-      ret << (int8_t)PACKET_BLOCK_ACTION << (int32_t)x << (int16_t)y << (int32_t)z << (int8_t)instrument << (int8_t)pitch << (int16_t)blockID;
+      ret << (int8_t)PACKET_BLOCK_ACTION << x << y << z << instrument << pitch << blockID;
       return ret;
     }
 
@@ -341,7 +333,15 @@ class Protocol
     static Packet namedSoundEffect( std::string sound_Name, int32_t x, int32_t y, int8_t z, float volume, int8_t pitch )
     {
       Packet ret;
-      ret << (int8_t)PACKET_NAMED_SOUND_EFFECT << (std::string)sound_Name << (int32_t)x << (int32_t)y << (int32_t)z << (float)volume << (int8_t)pitch;
+      ret << (int8_t)PACKET_NAMED_SOUND_EFFECT << sound_Name << x << y << z << volume << pitch;
+      return ret;
+    }
+
+    // Chat Message (http://mc.kev009.com/Protocol#Chat_Message_.280x03.29)
+    static Packet chatMessage( std::string message )
+    {
+      Packet ret;
+      ret << (int8_t)PACKET_CHAT_MESSAGE << message;
       return ret;
     }
 };

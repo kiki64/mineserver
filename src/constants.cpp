@@ -26,20 +26,34 @@
 */
 
 #include <map>
+#include <ctime>
 
 #include "constants.h"
 #include "random.h"
 
 std::map<uint8_t, DropPtr> BLOCKDROPS;
-std::default_random_engine generator;
-std::uniform_int_distribution<uint8_t> lapis_distribution(4,8);
-std::uniform_int_distribution<uint8_t> tall_grass_distribution(0,1);
-std::uniform_int_distribution<uint8_t> huge_mushroom_distribution(0,2);
-std::uniform_int_distribution<uint8_t> redstone_distribution(4,5);
-std::uniform_int_distribution<uint8_t> glowstone_distribution(2,4);
-std::uniform_int_distribution<uint8_t> melon_distribution(3,7);
-std::uniform_int_distribution<uint8_t> carrots_distribution(1,4);
-std::uniform_int_distribution<uint8_t> potatoes_distribution(1,4);
+
+// Get the number of items to drop for items that aren't constant
+enum {
+    RAND_DROP_LAPIS, RAND_DROP_TALL_GRASS, RAND_DROP_HUGE_MUSHROOM, RAND_DROP_REDSTONE,
+    RAND_DROP_GLOWSTONE, RAND_DROP_MELON, RAND_DROP_CARROTS, RAND_DROP_POTATOES
+};
+int getDistribution( int type )
+{
+    srand(time(NULL));
+    switch( type )
+    {
+        case RAND_DROP_LAPIS: return rand() % 8 + 4; // (4-8)
+        case RAND_DROP_TALL_GRASS: return rand() % 1; // (0-1)
+        case RAND_DROP_HUGE_MUSHROOM: return rand() % 2; // (0-2)
+        case RAND_DROP_REDSTONE: return rand() % 5 + 4; // (4-5)
+        case RAND_DROP_GLOWSTONE: return rand() % 4 + 2; // (2-4)
+        case RAND_DROP_MELON: return rand() % 7 + 3; // (3-7)
+        case RAND_DROP_CARROTS: return rand() % 4 + 1; // (1-4)
+        case RAND_DROP_POTATOES: return rand() % 4 + 1; // (1-4)
+        default : return 0;
+    }
+}
 
 const unsigned int SERVER_CONSOLE_UID = -1;
 
@@ -86,7 +100,7 @@ void initConstants()
   //BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_SPONGE, DropPtr( new Drop(BLOCK_SPONGE, 10000, 1))));
   //BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_GLASS, DropPtr( new Drop(BLOCK_GLASS, 10000, 1))));
 
-  BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_LAPIS_ORE, DropPtr(new Drop(ITEM_DYE, 10000, lapis_distribution(generator), DYE_LAPIS_LAZULI))));
+  BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_LAPIS_ORE, DropPtr(new Drop(ITEM_DYE, 10000, getDistribution(RAND_DROP_LAPIS), DYE_LAPIS_LAZULI))));
   BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_LAPIS_BLOCK, DropPtr(new Drop(BLOCK_LAPIS_BLOCK, 10000, 1))));
   BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_DISPENSER, DropPtr( new Drop(BLOCK_DISPENSER, 10000, 1))));
   BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_SANDSTONE, DropPtr( new Drop(BLOCK_SANDSTONE, 10000, 1))));
@@ -96,7 +110,7 @@ void initConstants()
   BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_DETECTOR_RAIL, DropPtr( new Drop(BLOCK_DETECTOR_RAIL, 10000, 1))));
   BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_STICKY_PISTON, DropPtr( new Drop(BLOCK_STICKY_PISTON, 10000, 1))));
   //BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_COBWEB, DropPtr( new Drop(BLOCK_COBWEB, 10000, 1))));
-  BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_TALL_GRASS, DropPtr( new Drop(BLOCK_CROPS, 10000, tall_grass_distribution(generator)))));
+  BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_TALL_GRASS, DropPtr( new Drop(BLOCK_CROPS, 10000, getDistribution(RAND_DROP_TALL_GRASS)))));
   //BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_DEAD_BUSH, DropPtr( new Drop(BLOCK_DEAD_BUSH, 10000, 1))));
   BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_PISTON, DropPtr( new Drop(BLOCK_PISTON, 10000, 1))));
   //BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_PISTON_EXTENSION, DropPtr( new Drop(BLOCK_PISTON_EXTENSION, 10000, 1))));
@@ -140,8 +154,8 @@ void initConstants()
   BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_STONE_PRESSURE_PLATE, DropPtr( new Drop(BLOCK_STONE_PRESSURE_PLATE, 10000, 1))));
   BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_IRON_DOOR, DropPtr( new Drop(ITEM_IRON_DOOR, 10000, 1))));
   BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_WOODEN_PRESSURE_PLATE, DropPtr( new Drop(BLOCK_WOODEN_PRESSURE_PLATE, 10000, 1))));
-  BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_REDSTONE_ORE, DropPtr( new Drop(ITEM_REDSTONE, 10000, redstone_distribution(generator)))));
-  BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_GLOWING_REDSTONE_ORE, DropPtr( new Drop(ITEM_REDSTONE, 10000, redstone_distribution(generator)))));
+  BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_REDSTONE_ORE, DropPtr( new Drop(ITEM_REDSTONE, 10000, getDistribution(RAND_DROP_REDSTONE)))));
+  BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_GLOWING_REDSTONE_ORE, DropPtr( new Drop(ITEM_REDSTONE, 10000, getDistribution(RAND_DROP_REDSTONE)))));
   BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_REDSTONE_TORCH_OFF, DropPtr( new Drop(BLOCK_REDSTONE_TORCH_ON, 10000, 1)))); 
   BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_REDSTONE_TORCH_ON, DropPtr( new Drop(BLOCK_REDSTONE_TORCH_ON, 10000, 1))));
   BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_STONE_BUTTON, DropPtr( new Drop(BLOCK_STONE_BUTTON, 10000, 1))));
@@ -157,7 +171,7 @@ void initConstants()
   BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_PUMPKIN, DropPtr( new Drop(BLOCK_PUMPKIN, 10000, 1))));
   BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_NETHERRACK, DropPtr( new Drop(BLOCK_NETHERRACK, 10000, 1))));
   BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_SOUL_SAND, DropPtr( new Drop(BLOCK_SOUL_SAND, 10000, 1))));
-  BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_GLOWSTONE, DropPtr( new Drop(ITEM_GLOWSTONE_DUST, 10000, glowstone_distribution(generator)))));
+  BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_GLOWSTONE, DropPtr( new Drop(ITEM_GLOWSTONE_DUST, 10000, getDistribution(RAND_DROP_GLOWSTONE)))));
   //BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_PORTAL, DropPtr( new Drop(BLOCK_PORTAL, 10000, 1))));
   BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_JACK_O_LANTERN, DropPtr( new Drop(BLOCK_JACK_O_LANTERN, 10000, 1))));
   BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_CAKE, DropPtr( new Drop(BLOCK_CAKE, 10000, 1))));
@@ -167,12 +181,12 @@ void initConstants()
   BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_TRAPDOOR, DropPtr( new Drop(BLOCK_TRAPDOOR, 10000, 1))));
   //BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_MONSTER_EGG, DropPtr( new Drop(BLOCK_MONSTER_EGG, 10000, 1))));
   BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_STONE_BRICKS, DropPtr( new Drop(BLOCK_STONE_BRICKS, 10000, 1))));
-  BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_HUGE_BROWN_MUSHROOM, DropPtr( new Drop(BLOCK_BROWN_MUSHROOM, 10000, huge_mushroom_distribution(generator)))));
-  BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_HUGE_RED_MUSHROOM, DropPtr( new Drop(BLOCK_RED_MUSHROOM, 10000, huge_mushroom_distribution(generator)))));
+  BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_HUGE_BROWN_MUSHROOM, DropPtr( new Drop(BLOCK_BROWN_MUSHROOM, 10000, getDistribution(RAND_DROP_HUGE_MUSHROOM)))));
+  BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_HUGE_RED_MUSHROOM, DropPtr( new Drop(BLOCK_RED_MUSHROOM, 10000, getDistribution(RAND_DROP_HUGE_MUSHROOM)))));
 
   BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_IRON_BARS, DropPtr( new Drop(BLOCK_IRON_BARS, 10000, 1))));
   //BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_GLASS_PANE, DropPtr( new Drop(BLOCK_GLASS_PANE, 10000, 1))));
-  BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_MELON, DropPtr( new Drop(BLOCK_MELON, 10000, melon_distribution(generator)))));
+  BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_MELON, DropPtr( new Drop(BLOCK_MELON, 10000, getDistribution(RAND_DROP_MELON)))));
   BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_PUMPKIN_STEM, DropPtr( new Drop(BLOCK_PUMPKIN_STEM, 10000, 1))));
   BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_MELON_STEM, DropPtr( new Drop(BLOCK_MELON_STEM, 10000, 1))));
   //BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_VINES, DropPtr( new Drop(BLOCK_VINES, 10000, 1)))); // Need a shears to collect
@@ -212,14 +226,13 @@ void initConstants()
   BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_COBBLESTONE_WALL, DropPtr( new Drop(BLOCK_COBBLESTONE_WALL, 10000, 1))));
   BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_FLOWER_POT, DropPtr( new Drop(ITEM_FLOWER_POT, 10000, 1))));
 
-  BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_CARROTS, DropPtr( new Drop(ITEM_CARROT, 10000, carrots_distribution(generator)))));
-  BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_POTATOES, DropPtr( new Drop(ITEM_POTATO, 10000, potatoes_distribution(generator))))); // Can also drop an additional poisonous potato - 2% chance
+  BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_CARROTS, DropPtr( new Drop(ITEM_CARROT, 10000, getDistribution(RAND_DROP_CARROTS)))));
+  BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_POTATOES, DropPtr( new Drop(ITEM_POTATO, 10000, getDistribution(RAND_DROP_POTATOES))))); // Can also drop an additional poisonous potato - 2% chance
   BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_WOODEN_BUTTON, DropPtr( new Drop(BLOCK_WOODEN_BUTTON, 10000, 1))));
 }
 
 void Drop::getDrop(int16_t& item, uint8_t& count, uint8_t& meta)
 {
-  generator.discard(1);
   Drop *cur = this;
   while (cur)
   {

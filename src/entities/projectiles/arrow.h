@@ -28,8 +28,8 @@
 #ifndef _ENTITIES_ARROW_H
 #define _ENTITIES_ARROW_H
 
-#include "../../constants.h"
-#include "../../user.h"
+#include "../../../include/constants.h"
+#include "../../../include/user.h"
 #include "../entity.h"
 
 
@@ -42,7 +42,7 @@ public:
   void update();
   //bool hasTimedout() { return timeStationary >= projectileTimeout;}
   bool isInFlight() { return inFlight; }
-  bool canBeRetrieved() {} //pickedup
+  bool canBeRetrieved() { return true; } //pickedup
 
   //Setters
   void setProjectileID( int8_t temp ){ projID = temp; }

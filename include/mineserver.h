@@ -69,15 +69,33 @@ struct event_base;
 class Mineserver
 {
 public:
-  // Variables
+  // Program variables
   char** argv;
   int argc;
   int m_socketlisten;
-  int m_saveInterval;
-  time_t m_lastSave;
-  bool m_pvp_enabled;
+
+  // Gameplay variables
   bool m_damage_enabled;
   bool m_only_helmets;
+
+  int  m_difficulty;
+  int  m_gamemode;
+  bool m_hardcore_mode_enabled;
+  std::string m_level_type;
+  int  m_max_build_height;
+  bool m_pvp_enabled;
+  bool m_spawn_animals;
+  bool m_spawn_monsters;
+  bool m_spawn_nps;
+  std::string m_texture_pack;
+  int  m_user_limit;
+  int  m_view_distance;
+  bool m_whitelist_enabled;
+
+  // Saving
+  int m_saveInterval;
+  time_t m_lastSave;
+
   struct event m_listenEvent;
   pthread_mutex_t m_validation_mutex;
   struct userValidation { User* user; bool valid; uint32_t UID; };

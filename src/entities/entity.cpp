@@ -26,7 +26,7 @@
  */
 
 #include "entity.h"
-#include "../mineserver.h"
+#include "../include/mineserver.h"
 
 void Entity::update()
 {
@@ -35,7 +35,7 @@ void Entity::update()
 
 void Entity::createEID()
 {
-  EID = Mineserver::get()->generateEID();
+  EID = ServerInstance->generateEID();
 }
 
 int32_t Entity::getEID()

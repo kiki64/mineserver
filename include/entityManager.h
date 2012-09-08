@@ -28,6 +28,8 @@
 #ifndef ENTITY_MANAGER_H
 #define ENTITY_MANAGER_H
 
+#include <list>
+
 class entity;
 
 typedef std::tr1::shared_ptr<entity> entityPtr;

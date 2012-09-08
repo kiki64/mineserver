@@ -264,7 +264,7 @@ bool User::kick(std::string kickMsg)
   buffer << Protocol::kick(kickMsg);
   runAllCallback("PlayerKickPost",nick.c_str(), kickMsg.c_str());
 
-  LOG2(WARNING, nick + " kicked. Reason: " + kickMsg);
+  //LOG2(WARNING, nick + " kicked. Reason: " + kickMsg);
 
   return true;
 }
@@ -517,20 +517,17 @@ bool User::updatePosM(double x, double y, double z, size_t map, double stance)
 {
   if (map != pos.map && logged)
   {
-    Packet pkt;
-    pkt << Protocol::destroyEntity(UID);
     sChunk* chunk = ServerInstance->map(pos.map)->getMapData(blockToChunk((int32_t)pos.x), blockToChunk((int32_t)pos.z));
     if (chunk != NULL)
     {
-      chunk->sendPacket(pkt, this);
+      chunk->sendPacket(Protocol::destroyEntity(UID), this);
     }
 
     pos.map = map;
     pos.x = x;
     pos.y = y;
     pos.z = z;
-    std::string temp = nick + " is changing worlds.";
-    LOG2(INFO, temp.c_str());
+    LOG2(INFO, std::string(nick + " is changing worlds.").c_str());
 
     //Loop through chunks in users known and add them to be removed.
     while (this->mapKnown.size())
@@ -539,7 +536,7 @@ bool User::updatePosM(double x, double y, double z, size_t map, double stance)
       addRemoveQueue(mapKnown.begin()->x(), mapKnown.begin()->z());
 
       // Delete from known list
-      delKnown(mapKnown.begin()->x(), mapKnown.begin()->x());
+      delKnown(mapKnown.begin()->x(), mapKnown.begin()->z());
 
       // Remove from queue
       mapKnown.erase(mapKnown.begin());
@@ -547,17 +544,17 @@ bool User::updatePosM(double x, double y, double z, size_t map, double stance)
     popMap();
 
     // Put nearby chunks to queue
-    for (int x = -viewDistance; x <= viewDistance; x++)
+    for (int xloop = -viewDistance; xloop <= viewDistance; xloop++)
     {
-      for (int z = -viewDistance; z <= viewDistance; z++)
+      for (int zloop = -viewDistance; zloop <= viewDistance; zloop++)
       {
-        addQueue((int32_t)pos.x / 16 + x, (int32_t)pos.z / 16 + z);
+        addQueue((int32_t)pos.x / 16 + xloop, (int32_t)pos.z / 16 + zloop);
       }
     }
     // Push chunks to user
     pushMap();
 
-    buffer << Protocol::respawn() << Protocol::playerPositionAndLook( x, y, stance, z, pos.yaw, pos.pitch, true) << Protocol::timeUpdate(ServerInstance->map(map)->mapTime);
+    buffer << Protocol::respawn() << Protocol::playerPositionAndLook( x, y, stance, z, pos.yaw, pos.pitch, true) << Protocol::timeUpdate(ServerInstance->map(pos.map)->mapTime);
 
   }
   return false;
@@ -832,7 +829,7 @@ bool User::sendAll(const Packet& packet)
 {
   for (std::set<User*>::const_iterator it = ServerInstance->users().begin(); it != ServerInstance->users().end(); ++it)
   {
-    if ((*it)->fd && (*it)->logged)
+    if ((*it)->fd && (*it)->logged && !(*it)->dnd)
     {
       (*it)->buffer.addToWrite(packet);
     }
@@ -845,7 +842,7 @@ bool User::sendAll(uint8_t* data, size_t len)
 {
   for (std::set<User*>::const_iterator it = ServerInstance->users().begin(); it != ServerInstance->users().end(); ++it)
   {
-    if ((*it)->fd && (*it)->logged)
+    if ((*it)->fd && (*it)->logged && !(*it)->dnd)
     {
       (*it)->buffer.addToWrite(data, len);
     }
@@ -1303,12 +1300,10 @@ bool User::respawn()
   this->health = 20;
   this->timeUnderwater = 0;
   buffer << Protocol::respawn(); //FIXME: send the correct world id
-  Packet destroyPkt;
-  destroyPkt << Protocol::destroyEntity(UID);
   sChunk* chunk = ServerInstance->map(pos.map)->getMapData(blockToChunk((int32_t)pos.x), blockToChunk((int32_t)pos.z));
   if (chunk != NULL)
   {
-    chunk->sendPacket(destroyPkt, this);
+    chunk->sendPacket(Protocol::destroyEntity(UID), this);
   }
 
   runCallbackUntilFalse("PlayerRespawn",nick.c_str());
@@ -1321,12 +1316,10 @@ bool User::respawn()
     teleport(ServerInstance->map(pos.map)->spawnPos.x(), ServerInstance->map(pos.map)->spawnPos.y() + 2, ServerInstance->map(pos.map)->spawnPos.z(), 0);
   }
 
-  Packet spawnPkt = Protocol::namedEntitySpawn(UID, nick, pos.x, pos.y, pos.z, angleToByte(pos.yaw), angleToByte(pos.pitch), curItem);
-
   chunk = ServerInstance->map(pos.map)->getMapData(blockToChunk((int32_t)pos.x), blockToChunk((int32_t)pos.z));
   if (chunk != NULL)
   {
-    chunk->sendPacket(spawnPkt, this);
+    chunk->sendPacket(Protocol::namedEntitySpawn(UID, nick, pos.x, pos.y, pos.z, angleToByte(pos.yaw), angleToByte(pos.pitch), curItem), this);
   }
 
   return true;
@@ -1348,18 +1341,14 @@ bool User::dropInventory()
 bool User::isUnderwater()
 {
   uint8_t topblock, topmeta;
+  // Determines how high we are in the block when swimming.
   const int y = int((pos.y - int(pos.y) <= 0.25) ? pos.y + 1 : pos.y + 2);
-
-  if (y > 127)
-  {
-    return false;
-  }
 
   ServerInstance->map(pos.map)->getBlock((int)pos.x, y, (int)pos.z, &topblock, &topmeta);
 
   if (topblock == BLOCK_WATER || topblock == BLOCK_STATIONARY_WATER)
   {
-    if ((timeUnderwater / 5) > 15 && timeUnderwater % 5 == 0)  // 13 is Trial and Erorr
+    if ((timeUnderwater / 5) > 15 && timeUnderwater % 5 == 0)
     {
       sethealth(health - 2);
     }

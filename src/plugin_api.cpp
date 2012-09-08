@@ -31,6 +31,7 @@
 #include "logger.h"
 #include "chat.h"
 #include "permissions.h"
+#include "protocol.h"
 
 #include "plugin.h"
 #include "config.h"
@@ -56,59 +57,50 @@
 mineserver_pointer_struct plugin_api_pointers;
 
 // HELPER FUNCTIONS
-User* userFromName(std::string user)
-{
-  for (std::set<User*>::const_iterator it = ServerInstance->users().begin(); it != ServerInstance->users().end(); ++it)
-  {
-    // Don't send to his user if he is DND and the message is a chat message
-    if (((*it)->fd && (*it)->logged && user == (*it)->nick))
-    {
-      return *it;
-    }
-  }
-  return NULL;
-}
+
+
+
 
 // PLUGIN_API FUNCTIONS
 
 bool plugin_hasPluginVersion(const char* name)
 {
-  return ServerInstance->plugin()->hasPluginVersion(std::string(name));
+  return ServerInstance->plugin()->hasPluginVersion(name);
 }
 
 float plugin_getPluginVersion(const char* name)
 {
-  return ServerInstance->plugin()->getPluginVersion(std::string(name));
+  return ServerInstance->plugin()->getPluginVersion(name);
 }
 
 void plugin_setPluginVersion(const char* name, float version)
 {
-  ServerInstance->plugin()->setPluginVersion(std::string(name), version);
+  ServerInstance->plugin()->setPluginVersion(name, version);
 }
 
 void plugin_remPluginVersion(const char* name)
 {
-  ServerInstance->plugin()->remPluginVersion(std::string(name));
+  ServerInstance->plugin()->remPluginVersion(name);
 }
 
 bool plugin_hasPointer(const char* name)
 {
-  return ServerInstance->plugin()->hasPointer(std::string(name));
+  return ServerInstance->plugin()->hasPointer(name);
 }
 
 void* plugin_getPointer(const char* name)
 {
-  return ServerInstance->plugin()->getPointer(std::string(name));
+  return ServerInstance->plugin()->getPointer(name);
 }
 
 void plugin_setPointer(const char* name, void* pointer)
 {
-  ServerInstance->plugin()->setPointer(std::string(name), pointer);
+  ServerInstance->plugin()->setPointer(name, pointer);
 }
 
 void plugin_remPointer(const char* name)
 {
-  ServerInstance->plugin()->remPointer(std::string(name));
+  ServerInstance->plugin()->remPointer(name);
 }
 
 bool plugin_hasHook(const char* hookID)
@@ -206,24 +198,19 @@ void logger_log(int type, const char* source, const char* message)
 }
 
 // CHAT WRAPPER FUNCTIONS
-bool chat_sendmsgTo(const char* user, const char* msg)
+bool chat_sendmsgTo(const char* userNick, const char* msg)
 {
-  const std::string userStr(user);
-
-  if (userStr == "[Server]")
+  User* user = User::byNick(userNick);
+  if (userNick == "[Server]")
   {
     LOG(INFO, "Chat", msg);
     return true;
   }
 
-  for (std::set<User*>::const_iterator it = ServerInstance->users().begin(); it != ServerInstance->users().end(); ++it)
+  if (user->fd && user->logged && userNick == user->nick)
   {
-    // Don't send to his user if he is DND and the message is a chat message
-    if ((*it)->fd && (*it)->logged && userStr == (*it)->nick)
-    {
-      (*it)->buffer << (int8_t)PACKET_CHAT_MESSAGE << std::string(msg);
-      return true;
-    }
+    user->buffer << Protocol::chatMessage(msg);
+    return true;
   }
 
   return false;
@@ -231,25 +218,13 @@ bool chat_sendmsgTo(const char* user, const char* msg)
 
 bool chat_sendmsg(const char* msg)
 {
-  const std::string msgStr(msg);
-
-  for (std::set<User*>::const_iterator it = ServerInstance->users().begin(); it != ServerInstance->users().end(); ++it)
-  {
-    // Don't send to his user if he is DND and the message is a chat message
-    if ((*it)->fd && (*it)->logged && !(*it)->dnd)
-    {
-      (*it)->buffer << (int8_t)PACKET_CHAT_MESSAGE << msgStr;
-    }
-  }
-
+  User::sendAll(Protocol::chatMessage(msg));
   return true;
 }
 
 bool chat_sendUserlist(const char* user)
 {
-  const std::string userStr(user);
-
-  User* userPtr = userFromName(userStr);
+  User* userPtr = User::byNick(user);
 
   if (userPtr != NULL)
   {
@@ -271,7 +246,7 @@ bool chat_handleMessage(const char* username, const char* message)
   }
   else
   {
-    User* user = userFromName(std::string(username));
+    User* user = User::byNick(std::string(username));
     if (user != NULL)
     {
       ServerInstance->chat()->handleMsg(user, message);
@@ -301,12 +276,10 @@ int map_getTime()
 
 void map_createPickupSpawn(int x, int y, int z, int type, int count, int health, const char* user)
 {
-  User* tempUser = NULL;
+  User* tempUser = User::byNick(user);
   if (user != NULL)
   {
-    tempUser = userFromName(std::string(user));
     ServerInstance->map(tempUser->pos.map)->createPickupSpawn(x, y, z, type, count, health, tempUser);
-
   }
   else
   {
@@ -460,7 +433,7 @@ bool user_getPositionW(const char* user, double* x, double* y, double* z, int* w
 
 bool user_teleport(const char* user, double x, double y, double z)
 {
-  User* tempUser = userFromName(std::string(user));
+  User* tempUser = User::byNick(std::string(user));
   if (tempUser != NULL)
   {
     tempUser->teleport(x, y, z);
@@ -475,7 +448,7 @@ bool user_teleportMap(const char* user, double x, double y, double z, size_t map
   {
     return false;
   }
-  User* tempUser = userFromName(std::string(user));
+  User* tempUser = User::byNick(std::string(user));
   if (tempUser != NULL && map != tempUser->pos.map)
   {
     tempUser->teleport(x, y, z, map);
@@ -486,7 +459,7 @@ bool user_teleportMap(const char* user, double x, double y, double z, size_t map
 
 bool user_sethealth(const char* user, int userHealth)
 {
-  User* tempUser = userFromName(std::string(user));
+  User* tempUser = User::byNick(std::string(user));
   if (tempUser != NULL)
   {
     tempUser->sethealth(userHealth);
@@ -497,7 +470,7 @@ bool user_sethealth(const char* user, int userHealth)
 
 int user_gethealth(const char* user)
 {
-  User* tempUser = userFromName(std::string(user));
+  User* tempUser = User::byNick(std::string(user));
   if (tempUser != NULL)
   {
     return tempUser->health;
@@ -519,7 +492,7 @@ const char* user_getUserNumbered(int c)
 
 bool user_getItemInHand(const char* user, int* type, int* meta, int* quant)
 {
-  User* tempUser = userFromName(std::string(user));
+  User* tempUser = User::byNick(std::string(user));
   if (tempUser != NULL)
   {
     Item item = tempUser->inv[tempUser->curItem + 36];
@@ -550,7 +523,7 @@ bool user_setItemInHand(const char* user, int type, int meta, int quant)
   {
     quant = 0;
   }
-  User* tempUser = userFromName(std::string(user));
+  User* tempUser = User::byNick(std::string(user));
   if (tempUser != NULL)
   {
     Item* item = &tempUser->inv[tempUser->curItem + 36];
@@ -568,7 +541,7 @@ bool user_setItemInHand(const char* user, int type, int meta, int quant)
 bool user_addItem(const char* user, int item, int count, int health)
 {
   int total = count;
-  User* tempuser = userFromName(std::string(user));
+  User* tempuser = User::byNick(std::string(user));
   if (tempuser != NULL)
   {
     bool checkingTaskbar = true;
@@ -623,7 +596,7 @@ bool user_addItem(const char* user, int item, int count, int health)
 
 bool user_hasItem(const char* user, int item, int count, int health)
 {
-  User* tempuser = userFromName(std::string(user));
+  User* tempuser = User::byNick(std::string(user));
   if (tempuser == NULL)
   {
     return false;
@@ -654,7 +627,7 @@ bool user_hasItem(const char* user, int item, int count, int health)
 
 bool user_delItem(const char* user, int item, int count, int health)
 {
-  User* tempuser = userFromName(std::string(user));
+  User* tempuser = User::byNick(std::string(user));
   if (tempuser == NULL)
   {
     return false;
@@ -690,20 +663,25 @@ bool user_delItem(const char* user, int item, int count, int health)
   return false;
 }
 
-bool user_kick(const char* user)
+bool user_kick(const char* user, std::string reason)
 {
-  User* tempuser = userFromName(std::string(user));
+  User* tempuser = User::byNick(std::string(user));
   if (tempuser == NULL)
   {
     return false;
   }
-  tempuser->kick("You have been kicked!"); // Need to allow other languages.
+  if( reason.length() > 0 )
+  {
+    reason = " Reason: " + reason;
+  }
+
+  tempuser->kick(ServerInstance->config()->sData("locale.kicked") + reason);
   return true;
 }
 
 bool user_getItemAt(const char* user, int slotn, int* type, int* meta, int* quant)
 {
-  User* tempuser = userFromName(std::string(user));
+  User* tempuser = User::byNick(std::string(user));
   if (tempuser == NULL)
   {
     return false;
@@ -726,7 +704,7 @@ bool user_getItemAt(const char* user, int slotn, int* type, int* meta, int* quan
 
 bool user_setItemAt(const char* user, int slotn, int type, int meta, int quant)
 {
-  User* tempuser = userFromName(std::string(user));
+  User* tempuser = User::byNick(std::string(user));
   if (tempuser == NULL)
   {
     return false;
@@ -742,7 +720,7 @@ bool user_setItemAt(const char* user, int slotn, int type, int meta, int quant)
 }
 bool user_setGameMode(const char* user, int gamemode)
 {
-    User* tempuser = userFromName(std::string(user));
+    User* tempuser = User::byNick(std::string(user));
     if (tempuser == NULL)
         return false;
 
@@ -755,37 +733,37 @@ bool user_setGameMode(const char* user, int gamemode)
 // CONFIG WRAPPER FUNCTIONS
 bool config_has(const char* name)
 {
-  return ServerInstance->config()->has(std::string(name));
+  return ServerInstance->config()->has(name);
 }
 
 int config_iData(const char* name)
 {
-  return ServerInstance->config()->iData(std::string(name));
+  return ServerInstance->config()->iData(name);
 }
 
 int64_t config_lData(const char* name)
 {
-  return ServerInstance->config()->lData(std::string(name));
+  return ServerInstance->config()->lData(name);
 }
 
 float config_fData(const char* name)
 {
-  return ServerInstance->config()->fData(std::string(name));
+  return ServerInstance->config()->fData(name);
 }
 
 double config_dData(const char* name)
 {
-  return ServerInstance->config()->dData(std::string(name));
+  return ServerInstance->config()->dData(name);
 }
 
 const char* config_sData(const char* name)
 {
-  return ServerInstance->config()->sData(std::string(name)).c_str();
+  return ServerInstance->config()->sData(name).c_str();
 }
 
 bool config_bData(const char* name)
 {
-  return ServerInstance->config()->bData(std::string(name));
+  return ServerInstance->config()->bData(name);
 }
 
 int mob_createMob(int type)
@@ -958,7 +936,7 @@ int8_t mob_getByteMetadata(int uid, int idx)
 
 bool permission_setAdmin(const char* name)
 {
-  User* tempuser = userFromName(std::string(name));
+  User* tempuser = User::byNick(name);
   if (tempuser == NULL)
   {
     return false;
@@ -969,7 +947,7 @@ bool permission_setAdmin(const char* name)
 
 bool permission_setOp(const char* name)
 {
-  User* tempuser = userFromName(std::string(name));
+  User* tempuser = User::byNick(name);
   if (tempuser == NULL)
   {
     return false;
@@ -981,7 +959,7 @@ bool permission_setOp(const char* name)
 
 bool permission_setMember(const char* name)
 {
-  User* tempuser = userFromName(std::string(name));
+  User* tempuser = User::byNick(name);
   if (tempuser == NULL)
   {
     return false;
@@ -993,7 +971,7 @@ bool permission_setMember(const char* name)
 
 bool permission_setGuest(const char* name)
 {
-  User* tempuser = userFromName(std::string(name));
+  User* tempuser = User::byNick(name);
   if (tempuser == NULL)
   {
     return false;
@@ -1005,7 +983,7 @@ bool permission_setGuest(const char* name)
 
 bool permission_isAdmin(const char* name)
 {
-  User* tempuser = userFromName(std::string(name));
+  User* tempuser = User::byNick(name);
   if (tempuser == NULL)
   {
     return false;
@@ -1015,7 +993,7 @@ bool permission_isAdmin(const char* name)
 
 bool permission_isOp(const char* name)
 {
-  User* tempuser = userFromName(std::string(name));
+  User* tempuser = User::byNick(name);
   if (tempuser == NULL)
   {
     return false;
@@ -1025,7 +1003,7 @@ bool permission_isOp(const char* name)
 
 bool permission_isMember(const char* name)
 {
-  User* tempuser = userFromName(std::string(name));
+  User* tempuser = User::byNick(name);
   if (tempuser == NULL)
   {
     return false;
@@ -1035,7 +1013,7 @@ bool permission_isMember(const char* name)
 
 bool permission_isGuest(const char* name)
 {
-  User* tempuser = userFromName(std::string(name));
+  User* tempuser = User::byNick(name);
   if (tempuser == NULL)
   {
     return false;
