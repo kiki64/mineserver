@@ -187,6 +187,11 @@ void Chat::handleCommand(User* user, std::string msg, const std::string& timeSta
       msg = MC_COLOR_RED + "[!] " + MC_COLOR_GREEN + "You have been authed as admin!";
       sendMsg(user, msg, USER);
   }
+  //TODO: add checks to see if the user is privliaged.
+  else if( command == "stop" || command == "exit" )
+  {
+      ServerInstance->stop();
+  }
   else
   {
     runAllCallback("PlayerChatCommand",user->nick.c_str(), command.c_str(), cmd.size(), (const char**)param);

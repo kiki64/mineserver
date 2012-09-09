@@ -964,7 +964,7 @@ void whitelist(std::string user, std::string command, std::deque<std::string> ar
       {
         std::string line;
         std::fstream file;
-        file.open(whitelistFile, std::fstream::in);
+        file.open(whitelistFile.c_str(), std::fstream::in);
         if( file.is_open() )
         {
           while( file.good() )
@@ -979,7 +979,7 @@ void whitelist(std::string user, std::string command, std::deque<std::string> ar
           file.close();
         }
       
-        file.open(whitelistFile, std::fstream::out | std::fstream::app);
+        file.open(whitelistFile.c_str(), std::fstream::out | std::fstream::app);
         file << args[1] << std::endl;
         mineserver->chat.sendmsgTo(user.c_str(), std::string(args[1] + " was added to the whitelist.").c_str());
       }
@@ -992,12 +992,11 @@ void whitelist(std::string user, std::string command, std::deque<std::string> ar
       {
         bool found = false;
         std::string tempWhitelist = "tempWhitelist.txt";
-        std::string all;
         std::string line;
 
         std::fstream file, tempfile;
-        file.open(whitelistFile, std::fstream::in);
-        tempfile.open(tempWhitelist, std::fstream::out | std::fstream::trunc);
+        file.open(whitelistFile.c_str(), std::fstream::in);
+        tempfile.open(tempWhitelist.c_str(), std::fstream::out | std::fstream::trunc);
         if( file.is_open() && tempfile.is_open() )
         {
           while( file.good() )
@@ -1065,7 +1064,7 @@ void whitelist(std::string user, std::string command, std::deque<std::string> ar
       std::string line;
 
       std::fstream file;
-      file.open(whitelistFile, std::fstream::in);
+      file.open(whitelistFile.c_str(), std::fstream::in);
       if( file.is_open() )
       {
         while( file.good() )

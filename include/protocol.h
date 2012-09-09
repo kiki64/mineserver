@@ -317,7 +317,7 @@ class Protocol
     static Packet gameState(int8_t reason, int8_t data)
     {
       Packet ret;
-      ret<< (int8_t)PACKET_GAMESTATE << reason << data;
+      ret << (int8_t)PACKET_GAMESTATE << reason << data;
       return ret;
     }
 
@@ -330,7 +330,7 @@ class Protocol
     }
 
     // Named Sound Effect (http://www.wiki.vg/Protocol#Named_Sound_Effect_.280x3E.29)
-    static Packet namedSoundEffect( std::string sound_Name, int32_t x, int32_t y, int8_t z, float volume, int8_t pitch )
+    static Packet namedSoundEffect( std::string sound_Name, int32_t x, int32_t y, int32_t z, float volume, int8_t pitch )
     {
       Packet ret;
       ret << (int8_t)PACKET_NAMED_SOUND_EFFECT << sound_Name << x << y << z << volume << pitch;
