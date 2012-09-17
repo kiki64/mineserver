@@ -134,11 +134,14 @@ CONFIGURE_FILE(${PROJECT_SOURCE_DIR}/src/configure.h.in ${PROJECT_BINARY_DIR}/in
 # platform-specific tweaks
 #
 IF(WIN32)
+	Find_package(Pthreads REQUIRED)
+	include_directories(${PTHREADS_INCLUDE_DIR})
+	LIST(APPEND mineserver_depends "${PTHREADS_LIBRARY}")
   # this requires WinMain() entry, disabled until console/GUI option is added
   #set(exe "WIN32")
 
   # this shouldn't be here, but can cmake find these .lib's?
-  # do we really need winmm?
+  # do we really need winmm? - winmm used to get time in milliseconds
   FOREACH(lib ws2_32 winmm)
     STRING(TOUPPER ${lib} LIB)
     LIST(APPEND mineserver_depends "${lib}")

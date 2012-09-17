@@ -28,11 +28,11 @@
 #include <iostream>
 #include <sstream>
 #include <fstream> // Added for MOTD
-#include <string>
-#include <deque>
-#include <stdint.h>
-#include <cstdlib>
-#include <ctime>
+//#include <string>
+//#include <deque>
+//#include <stdint.h>
+//#include <cstdlib>
+//#include <ctime>
 
 #include "tr1.h"
 #include TR1INCLUDE(unordered_map)
@@ -40,13 +40,13 @@
 
 #define MINESERVER_C_API
 #include "plugin_api.h"
-
+//#include "chat.h"
 #include "commands.h"
 
 enum { PLANE,REPLACE };
 
 #define PLUGIN_COMMANDS_VERSION 1.1
-const char CHATCMDPREFIX   = '/';
+const std::string PLUGIN_NAME = "commands";
 mineserver_pointer_struct* mineserver;
 
 struct cuboidStruct
@@ -71,177 +71,9 @@ std::string dtos(double n)
   return result.str();
 }
 
-typedef void (*CommandCallback)(std::string nick, std::string, std::deque<std::string>);
-
-struct Command
-{
-  Command(std::deque<std::string> _names, std::string _arguments, std::string _description, CommandCallback _callback)
-    : names(_names),
-      arguments(_arguments),
-      description(_description),
-      callback(_callback)
-  {}
-  std::deque<std::string> names;
-  std::string arguments;
-  std::string description;
-  CommandCallback callback;  
-};
-
-typedef std::tr1::shared_ptr<Command> ComPtr;
-typedef std::tr1::unordered_map<std::string, ComPtr> CommandList;
-CommandList m_Commands;
-
-void registerCommand(ComPtr command)
-{
-  // Loop thru all the words for this command
-  std::string currentWord;
-  std::deque<std::string> words = command->names;
-  while(!words.empty())
-  {
-    currentWord = words.front();
-    words.pop_front();
-    m_Commands[currentWord] = command;
-  }
-}
-
-bool chatCommandFunction(const char* userIn,const char* cmdIn, int argc, char** argv)
-{
-  std::string user(userIn);
-  std::string command(cmdIn);
-  std::deque<std::string> cmd(argv, argv+argc);
-
-  if(command.size() == 0)
-  {
-    return false;
-  }
-
-  mineserver->logger.log(LOG_INFO, "plugin.commands", std::string(user + ": " + command).c_str());
-
-  // User commands
-  CommandList::iterator iter;
-  if((iter = m_Commands.find(command)) != m_Commands.end())
-  {
-    iter->second->callback(user, command, cmd);
-    return true;
-  }
-  return false;
-}
-
-bool isValidItem(int id)
-{
-  if (id < 1)  // zero or negative items are all invalid
-  {
-    return false;
-  }
-
-  if (id > 143 && id < 256)  // these are undefined blocks and items
-  {
-    return false;
-  }
-
-  if (id >= 2256 && id <= 2266)  // records are special cased
-  {
-    return true;
-  }
-
-  if (id > 396)  // high items are invalid
-  {
-    return false;
-  }
-
-  return true;
-}
-
 int roundUpTo(int x, int nearest)
 {
   return (((x + (nearest - 1)) / nearest) * nearest );
-}
-
-void giveItemsName(std::string userIn, int id, int count, int health)
-{
-  if (isValidItem(id))
-  {
-    int itemCount = 1, itemStacks = 1;
-
-    if(count != 1)
-    {
-      itemCount = count;
-      if(itemCount>1024) itemCount=1024;
-      // If multiple stacks
-      itemStacks = roundUpTo(itemCount, 64) / 64;
-      itemCount  -= (itemStacks-1) * 64;
-    }
-    int amount = 64;
-    for(int i = 0; i < itemStacks; i++)
-    {
-      // if last stack
-      if(i == itemStacks - 1)
-      {
-        amount = itemCount;
-      }
-      mineserver->user.addItem(userIn.c_str(), id, amount, health);
-    }
-  }
-  else
-  {
-    mineserver->chat.sendmsgTo(userIn.c_str(),  "Not a valid item");
-  }
-}
-
-void giveItems(std::string user, std::string command, std::deque<std::string> args)
-{
-  int itemId = 0;
-  int health = 0;
-  int count = 1;
-  int delimeterIndex = -1;
-
-  //Send items to self
-  if ((command == "igive" || command == "i" || command == "item" ) && args.size() >= 1 && args.size() <= 2)
-  {
-    //See if the item includes metadata
-    delimeterIndex = args[0].find(":");
-    if( delimeterIndex != -1 )
-    {
-      itemId = atoi(args[0].substr(0,delimeterIndex).c_str());
-      health = atoi(args[0].substr(delimeterIndex + 1).c_str());
-    }
-    else
-      itemId = atoi(args[0].c_str()); //Check if item is a number
-
-    //If item was not a number, search the name from config
-    if (itemId == 0)
-      itemId = mineserver->config.iData(args[0].substr(0,delimeterIndex).c_str());
-    if (args.size() == 2 )
-      count = atoi(args[1].c_str());
-  }
-  //Send items to others.
-  else if (args.size() >= 2 && args.size() <= 3)
-  {
-    user = args[0];
-
-    //See if the item includes metadata
-    delimeterIndex = args[1].find(":");
-    if( delimeterIndex != -1 )
-    {
-      itemId = atoi(args[1].substr(0,delimeterIndex).c_str());
-      health = atoi(args[1].substr(delimeterIndex + 1).c_str());
-    }
-    else
-      itemId = atoi(args[1].c_str()); //Check if item is a number
-
-    //If item was not a number, search the name from config
-    if (itemId == 0)
-      itemId = mineserver->config.iData(args[1].substr(0,delimeterIndex).c_str());
-
-    if(args.size()==3)
-      count = atoi(args[2].c_str());
-  }
-  else
-  {
-    mineserver->chat.sendmsgTo(user.c_str(), std::string("Usage: /" + command + " [player] item [count]").c_str());
-  }
-
-  giveItemsName(user, itemId, count, health);
 }
 
 void home(std::string user, std::string command, std::deque<std::string> args)
@@ -285,60 +117,7 @@ void userWorld(std::string user, std::string command, std::deque<std::string> ar
 
 }
 
-void coordinateTeleport(std::string user, std::string command, std::deque<std::string> args)
-{
-  if(args.size() == 3)
-  {
-    double x = atof(args[0].c_str());
-    double y = atof(args[1].c_str());
-    double z = atof(args[2].c_str());
-    mineserver->user.teleport(user.c_str(), x, y, z);
-  }
-  else
-  {
-    mineserver->chat.sendmsgTo(user.c_str(),"Usage: /ctp x y z");
-  }
-}
 
-void userTeleport(std::string user, std::string command, std::deque<std::string> args)
-{
-  if(args.size() == 1)
-  {
-    std::string tUser = args[0];
-    double x,y,z;
-    if(mineserver->user.getPosition(tUser.c_str(), &x,&y,&z,NULL,NULL,NULL))
-    {
-      mineserver->user.teleport(user.c_str(),x,y+2,z);
-      mineserver->chat.sendmsgTo(user.c_str(), "Teleported!");
-    }
-    else
-    {
-      std::string msg = "User " + args[0] + " not found (see /players)";
-      mineserver->chat.sendmsgTo(user.c_str(), msg.c_str());
-    }
-  }
-  else if(args.size() == 2)
-  {
-    std::string whoUser = args[0];
-    std::string toUser  = args[1];
-
-    double x,y,z;
-    if(mineserver->user.getPosition(toUser.c_str(), &x,&y,&z,NULL,NULL,NULL))
-    {
-      mineserver->user.teleport(whoUser.c_str(),x,y+2,z);
-      mineserver->chat.sendmsgTo(user.c_str(), "Teleported!");
-    }
-    else
-    {
-      std::string msg = "User " + args[0] + " not found (see /players)";
-      mineserver->chat.sendmsgTo(user.c_str(), msg.c_str());
-    }
-  }
-  else
-  {
-    mineserver->chat.sendmsgTo(user.c_str(), "Usage: /tp [player] targetplayer");
-  }
-}
 
 void replace(std::string user, std::string command, std::deque<std::string> args)
 {
@@ -513,60 +292,6 @@ void cuboid(std::string user, std::string command, std::deque<std::string> args)
   mineserver->chat.sendmsgTo(user.c_str(),"Cuboid start, place first block");
 }
 
-void playerList(std::string user, std::string command, std::deque<std::string> args)
-{
-  mineserver->chat.sendUserlist(user.c_str());
-}
-
-void saveMap(std::string user, std::string command, std::deque<std::string> args)
-{
-  mineserver->map.saveWholeMap();
-  mineserver->chat.sendmsgTo(user.c_str(),"Saved map!");
-}
-
-void time(std::string user, std::string command, std::deque<std::string> args)
-{
-  if(args.size() == 0)
-  {
-    std::string msg = "The current server time is " + dtos(mineserver->map.getTime());
-    mineserver->chat.sendmsgTo(user.c_str(), msg.c_str());
-  }
-  else if(args.size() == 1)
-  {
-    std::string timeValue = args[0];
-
-    // Check for time labels
-    if(timeValue == "day" || timeValue == "morning")
-    {
-      timeValue = "24000";
-    }
-    else if (timeValue == "dawn")
-    {
-      timeValue = "22500";
-    }
-    else if (timeValue == "noon")
-    {
-      timeValue = "6000";
-    }
-    else if (timeValue == "dusk")
-    {
-      timeValue = "12000";
-    }
-    else if (timeValue == "night" || timeValue == "midnight")
-    {
-      timeValue = "18000";
-    }
-
-    mineserver->map.setTime(atoi(timeValue.c_str()));
-
-    mineserver->chat.sendmsgTo(user.c_str(),"World time changed.");
-  }
-  else
-  {
-    mineserver->chat.sendmsgTo(user.c_str(), std::string("Usage: /" + command + " time (time = 0-24000)").c_str());
-  }
-}
-
 bool translateDirection(int32_t *x, int8_t *y, int32_t *z, int8_t direction)
 {
     switch(direction)
@@ -721,16 +446,6 @@ void gps(std::string user, std::string command, std::deque<std::string> args)
   mineserver->chat.sendmsgTo(user.c_str(), msg.c_str());
 }
 
-void banUser(std::string user, std::string command, std::deque<std::string> args)
-{
-  return;
-}
-
-void unbanUser(std::string user, std::string command, std::deque<std::string> args) 
-{
-  return;
-}
-
 void sendRules(std::string user, std::string command, std::deque<std::string> args) 
 {
   std::string line;
@@ -755,93 +470,7 @@ void about(std::string user, std::string command, std::deque<std::string> args)
   }
 }
 
-void sendHelp(std::string user, std::string command, std::deque<std::string> args)
-{
-  CommandList* commandList = &m_Commands; // defaults
-  std::string commandColor = MC_COLOR_BLUE;
-  int commandsPerPage = 9; // 10 will fit nicely, -1 for the help title menu
-  int maxLineLength = 62; // Makes one command per line with longer lines cut and we add ...
-  int numPages = (commandList->size() + commandsPerPage - 1) / commandsPerPage;
-  std::string buffer = dtos(numPages); // Total pages
-  std::string buffer2; // Current page
 
-  if (args.size() == 0 || atoi(args.front().c_str()) != 0 )
-  {
-    if( args.size() != 0 && atoi(args.front().c_str()) != 0 && (atoi(args.front().c_str()) > numPages || atoi(args.front().c_str()) < 1 ))
-    {
-      std::string msg = MC_COLOR_RED + "Invalid Help Page Number (1-" + buffer + ")";
-      mineserver->chat.sendmsgTo(user.c_str(), msg.c_str());
-    }
-    else
-    {
-      uint8_t currentPage = 1;
-      if( args.size() != 0 && atoi(args.front().c_str()) != 0 )
-      {
-        currentPage = atoi(args.front().c_str());
-      }
-      buffer2 = dtos(currentPage);
-
-      //Help Menu Title
-      std::string msg = MC_COLOR_YELLOW + "------ Help Menu ------ Page " + buffer2 + " of " + buffer + " ------";
-      mineserver->chat.sendmsgTo(user.c_str(), msg.c_str());
-
-      //List Commands
-      uint16_t count = 1;
-      for(CommandList::iterator it = commandList->begin(); it != commandList->end(); ++it)
-      {
-
-        if( count > commandsPerPage * (currentPage - 1) && count <= commandsPerPage * currentPage)
-        {
-          std::string args = it->second->arguments;
-          std::string description = it->second->description;
-          std::string msg = commandColor + CHATCMDPREFIX + it->first;
-          if( args.compare("") == 0 )
-          {
-            msg.append(": " + description);
-          }
-          else
-          {
-            msg.append(" " + args + ": " + description);
-          }
-
-          if( msg.length() > maxLineLength )
-          {
-            msg = msg.substr(0, maxLineLength);
-            msg.append("...");
-          }
-
-          mineserver->chat.sendmsgTo(user.c_str(), msg.c_str());
-        }
-
-        if( count >= commandsPerPage * currentPage )
-        {
-          break;
-        }
-
-        count++;
-      }
-    }
-
-  }
-  else
-  {
-    CommandList::iterator iter;
-    if ((iter = commandList->find(args.front())) != commandList->end())
-    {
-      std::string args = iter->second->arguments;
-      std::string description = iter->second->description;
-      std::string msg = commandColor + CHATCMDPREFIX + iter->first + " " + args;
-      mineserver->chat.sendmsgTo(user.c_str(), msg.c_str());
-      msg = /*MC_COLOR_YELLOW + */CHATCMDPREFIX + description;
-      mineserver->chat.sendmsgTo(user.c_str(), msg.c_str());
-    }
-    else
-    {
-      std::string msg = /*MC_COLOR_RED +*/ "Unknown Command: " + args.front();
-      mineserver->chat.sendmsgTo(user.c_str(),msg.c_str());
-    }
-  }
-}
 
 void sendMOTD(std::string user, std::string command, std::deque<std::string> args)
 {
@@ -858,311 +487,64 @@ void sendMOTD(std::string user, std::string command, std::deque<std::string> arg
     MOTDFile.close();
   }
 }
-void changeGameMode(std::string user, std::string command, std::deque<std::string> args)
+
+
+
+void auth(std::string user, std::string command, std::deque<std::string> args)
 {
-    std::string changeUser = user;
-    int gamemode = -1;
-
-    if(args.size() >= 1)
-    {
-      if(args.size() == 2)
-        changeUser = args[0];
-
-      if(args[0] == "survival" || atoi(args[0].c_str()) == 0 ) 
-        gamemode = 0;
-      else if(args[0] == "creative" || atoi(args[0].c_str()) == 1)
-        gamemode = 1;
-      //else if(args[0] == "adventure" || atoi(args[0].c_str()) == 2)
-        //gamemode = 2;
-
-      if(gamemode != -1)
-      {
-        mineserver->user.setGameMode(changeUser.c_str(), gamemode);
-        mineserver->logger.log(LOG_INFO, "plugin.commands", 
-          std::string(user + " set " + changeUser + "'s gamemode to " + 
-          ( gamemode == 0 ? "survival" : ( gamemode == 1 ? "creative" : "adventure" ) ) + ".").c_str());
-      }
-      else
-        mineserver->chat.sendmsgTo(user.c_str(), "usage: /gamemode [player] < survival: 0 | creative: 1 > " ) ;
-    }
-    else
-      mineserver->chat.sendmsgTo(user.c_str(), "usage: /gamemode [player] < survival: 0 | creative: 1 > " ) ;
+  //// If hardcoded auth command!  TODO: Figure out if this is a command we want to support.  Finish the command with origin checks.
+  //if(command == "auth" && cmd.size() >= 1 && cmd[0] == ServerInstance->config()->sData("system.admin.password") )
+  //{
+  //  user->serverAdmin = true;
+  //  msg = MC_COLOR_RED + "[!] " + MC_COLOR_GREEN + "You have been authed as admin!";
+  //  sendMsg(user, msg, USER);
+  //}
 }
-void kickPlayer(std::string user, std::string command, std::deque<std::string> args)
-{
-  if( args.size() >= 1 )
-  {
-    std::string reason = "";
-    if(args.size() >= 2)
-    {
-      for( int i = 1; i < args.size(); i++ ) // Get all of reason for kick.
-      {
-        reason += " " + args[i];
-      }
-      reason = reason.substr(0,15); // BUG: For some reason when testing >15 for a reason is to much.
-    }
-    mineserver->user.kick(args[0].c_str(), reason);
-    mineserver->logger.log(LOG_INFO, "plugin.commands", std::string(user + " kicked " + args[0] + " Reason:" + reason).c_str());
-  }
-  else
-  {
-    mineserver->chat.sendmsgTo(user.c_str(), "usage: /kick <player> [reason]" ) ;
-  }
-
-}
-void me(std::string user, std::string command, std::deque<std::string> args)
-{
-  if( args.size() >= 1 )
-  {
-    std::string message = "";
-
-    for( int i = 0; i < args.size(); i++ ) // Get all of message.
-    {
-      message += " " + args[i];
-    }
-
-    mineserver->chat.sendmsg(std::string("* " + user + message).c_str());
-  }
-  else
-    mineserver->chat.sendmsgTo(user.c_str(), "usage: /me <action>") ;
-}
-void kill(std::string user, std::string command, std::deque<std::string> args)
-{
-  std::string tokill = user;
-  if( args.size() == 1 )
-  {
-    tokill = args[0];
-  }
-
-  mineserver->user.sethealth(tokill.c_str(), -1000);
-}
-void tell(std::string user, std::string command, std::deque<std::string> args)
-{
-  if( args.size() >= 2 )
-  {
-    std::string message = "";
-
-    for( int i = 1; i < args.size(); i++ ) // Get all of message.
-    {
-      message += " " + args[i];
-    }
-
-    mineserver->chat.sendmsgTo(args[0].c_str(), std::string(user + "> " + message).c_str() );
-  }
-  else
-    mineserver->chat.sendmsgTo(user.c_str(), std::string("usage: /"+command+" <player> <message>").c_str()) ;
-}
-void whitelist(std::string user, std::string command, std::deque<std::string> args)
-{
-  std::string whitelistFile = "whitelist.txt";
-
-  if( args.size() >= 1 )
-  {
-    if( args[0] == "add" )
-    {
-      if( args.size() == 2 )
-      {
-        std::string line;
-        std::fstream file;
-        file.open(whitelistFile.c_str(), std::fstream::in);
-        if( file.is_open() )
-        {
-          while( file.good() )
-          {
-            getline(file,line);
-            if( line.compare( args[1] ) == 0 )
-            {
-              mineserver->chat.sendmsgTo(user.c_str(), std::string(args[1] + " is already in the whitelist.").c_str());
-              return;
-            }
-          }
-          file.close();
-        }
-      
-        file.open(whitelistFile.c_str(), std::fstream::out | std::fstream::app);
-        file << args[1] << std::endl;
-        mineserver->chat.sendmsgTo(user.c_str(), std::string(args[1] + " was added to the whitelist.").c_str());
-      }
-      else
-        mineserver->chat.sendmsgTo(user.c_str(), std::string("usage: /whitelist add <player>").c_str());
-    }
-    else if( args[0] == "remove" || args[0] == "delete" )
-    {
-      if( args.size() == 2 )
-      {
-        bool found = false;
-        std::string tempWhitelist = "tempWhitelist.txt";
-        std::string line;
-
-        std::fstream file, tempfile;
-        file.open(whitelistFile.c_str(), std::fstream::in);
-        tempfile.open(tempWhitelist.c_str(), std::fstream::out | std::fstream::trunc);
-        if( file.is_open() && tempfile.is_open() )
-        {
-          while( file.good() )
-          {
-            std::getline(file, line);
-            if( line.compare( args[1] ) == 0 )
-            {
-              found = true;
-            }
-            else if( line.size() >= 1 )
-            {
-              tempfile << line << std::endl;
-            }
-          }
-          file.close();
-          tempfile.close();
-        }
-        else
-        {
-          mineserver->chat.sendmsgTo(user.c_str(), "An error occcured while modifing the whitelist.");
-          return;
-        }
-
-        if( found )
-        {  
-          //Remove old whitelist.
-          if( std::rename(whitelistFile.c_str(), std::string(whitelistFile + "2").c_str()) == 0 )
-          {
-            if( std::rename(tempWhitelist.c_str(), whitelistFile.c_str()) == 0 )
-            {
-              if( std::remove(std::string(whitelistFile + "2").c_str()) == 0 )
-              {
-                mineserver->chat.sendmsgTo(user.c_str(), std::string(args[1] + " was removed from the whitelist.").c_str());
-                return;
-              }
-              else
-              {
-                mineserver->chat.sendmsgTo(user.c_str(), "An error occcured while modifing the whitelist. Delete1");
-                std::remove(tempWhitelist.c_str());
-                std::rename(std::string(whitelistFile + "2").c_str(), whitelistFile.c_str());
-              }
-            }
-            else
-            {
-              mineserver->chat.sendmsgTo(user.c_str(), "An error occcured while modifing the whitelist. Rename2");
-              std::rename(std::string(whitelistFile + "2").c_str(), whitelistFile.c_str());
-            }
-          }
-          else
-            mineserver->chat.sendmsgTo(user.c_str(), "An error occcured while modifing the whitelist. Rename1");
-        }
-        else
-        {
-          std::remove(tempWhitelist.c_str());
-          mineserver->chat.sendmsgTo(user.c_str(), std::string(args[1] + " was not found in the whitelist.").c_str());
-          return;
-        }
-      }
-      else
-        mineserver->chat.sendmsgTo(user.c_str(), std::string("usage: /whitelist remove <player>").c_str());
-    }
-    else if( args[0] == "list" )
-    {
-      std::string all;
-      std::string line;
-
-      std::fstream file;
-      file.open(whitelistFile.c_str(), std::fstream::in);
-      if( file.is_open() )
-      {
-        while( file.good() )
-        {
-          getline(file,line);
-          if( line.substr(0,1) != "#" && line.size() >= 1 )
-            all += line + ", ";
-        }
-        file.close();
-      }
-      
-      //Remove trailing space and comma
-      all = all.substr(0, all.length()-2);
-
-      mineserver->chat.sendmsgTo(user.c_str(), all.c_str());
-    }
-    else if( args[0] == "on" )
-    {
-      //Add warning to user that is turning on the whitelist.
-      //mineserver->permissions.
-
-      mineserver->chat.sendmsgTo(user.c_str(), "Whitelist is now enabled.");
-    }
-    else if( args[0] == "off" )
-    {
-      mineserver->chat.sendmsgTo(user.c_str(), "Whitelist off");
-    }
-    else if( args[0] == "reload" )
-    {
-      mineserver->chat.sendmsgTo(user.c_str(), "Whitelist reload");
-    }
-    else
-      mineserver->chat.sendmsgTo(user.c_str(), std::string("usage: /"+command+" [add|remove|list|on|off|reload]").c_str()) ;
-  }
-  else
-    mineserver->chat.sendmsgTo(user.c_str(), std::string("usage: /"+command+" [add|remove|list|on|off|reload]").c_str()) ;
-}
-
-std::string pluginName = "commands";
 
 PLUGIN_API_EXPORT void CALLCONVERSION commands_init(mineserver_pointer_struct* mineserver_temp)
 {
   mineserver = mineserver_temp;
 
-  if (mineserver->plugin.getPluginVersion(pluginName.c_str()) > 0)
+  if (mineserver->plugin.getPluginVersion(PLUGIN_NAME.c_str()) > 0)
   {
-    std::string msg = "commands is already loaded v."+dtos(mineserver->plugin.getPluginVersion(pluginName.c_str()));
-    mineserver->logger.log(LOG_INFO, "plugin.commands", msg.c_str());
+    mineserver->logger.log(LOG_INFO, std::string("plugin." + PLUGIN_NAME).c_str(), std::string(PLUGIN_NAME + " is already loaded v."+dtos(PLUGIN_COMMANDS_VERSION)).c_str());
     return;
   }
-  std::string msg = "Loaded "+pluginName+"!";
-  mineserver->logger.log(LOG_INFO, "plugin.commands", msg.c_str());
 
-  mineserver->plugin.setPluginVersion(pluginName.c_str(), PLUGIN_COMMANDS_VERSION);
-
-  mineserver->plugin.addCallback("PlayerChatCommand", reinterpret_cast<voidF>(chatCommandFunction));
+  mineserver->logger.log(LOG_INFO, std::string("plugin." + PLUGIN_NAME).c_str(), std::string("Loaded "+PLUGIN_NAME+"!").c_str());
+  mineserver->plugin.setPluginVersion(PLUGIN_NAME.c_str(), PLUGIN_COMMANDS_VERSION);
+  //mineserver->plugin.addCallback("PlayerChatCommand", reinterpret_cast<voidF>(chatCommandFunction));
   mineserver->plugin.addCallback("BlockPlacePre", reinterpret_cast<voidF>(blockPlacePreFunction));
-
   mineserver->plugin.addCallback("PlayerDiggingStarted", reinterpret_cast<voidF>(startedDiggingFunction));
-  /* REQUIRED TODO: ban ban-ip banlist deop defaultgamemode kick op pardon/unban pardon-ip/unban-ip say stop time[set|add] toggledownfall whitelist[add|remove|list|on|off|reload] xp  || seed
-     OPTIONAL TODO: god heal warps mute/unmute weather kit /r-reply
-  */
-  registerCommand(ComPtr(new Command(parseCmd("about"), "", "Displays server name and software version", about)));
-  registerCommand(ComPtr(new Command(parseCmd("ctp"), "<x> <y> <z>", "Teleport to coordinates (eg. /ctp 100 100 100)", coordinateTeleport)));
-  registerCommand(ComPtr(new Command(parseCmd("cuboid"), "", "Type in the command and place two blocks, it will fill the space between them", cuboid)));
-  registerCommand(ComPtr(new Command(parseCmd("dnd"), "", "Toggles Do Not Disturb mode", doNotDisturb)));
-  registerCommand(ComPtr(new Command(parseCmd("flattenchunk"), "<id/alias>", "Erases all blocks above you and changes all blocks at your Y-level to your block of choice", flattenchunk)));
-  registerCommand(ComPtr(new Command(parseCmd("gamemode"), "[player] < survival: 0 | creative: 1 >", "Changes your or someone else's gamemode.", changeGameMode)));
-  registerCommand(ComPtr(new Command(parseCmd("give igive i item"), "[player] <id/alias> [count]", "Gives <player> [count] pieces of <id/alias>. By default [count] = 1", giveItems)));
-  registerCommand(ComPtr(new Command(parseCmd("gps"), "", "Display current coordinates", gps)));
-  registerCommand(ComPtr(new Command(parseCmd("help ?"), "[<commandName>]", "Display this help message.", sendHelp)));
-  registerCommand(ComPtr(new Command(parseCmd("home spawn"), "", "Teleports you to this world's spawn location", home)));
-  registerCommand(ComPtr(new Command(parseCmd("kill"), "[player]", "Kill either you or another player.", kill)));
-  registerCommand(ComPtr(new Command(parseCmd("kick"), "<player> [reason]", "Kicks a player from the server.", kickPlayer)));
-  registerCommand(ComPtr(new Command(parseCmd("me emote"), "<action>", "Displays your message as an action.", me)));
-  registerCommand(ComPtr(new Command(parseCmd("motd"), "", "Displays the server's MOTD", sendMOTD)));
-  registerCommand(ComPtr(new Command(parseCmd("players who names list"), "", "Lists online players", playerList)));
-  registerCommand(ComPtr(new Command(parseCmd("replace"), "<from-id/alias> <to-id/alias>", "Type in the command and left-click two blocks, it will replace the selected blocks with the new blocks", replace)));
-  registerCommand(ComPtr(new Command(parseCmd("replacechunk"), "<from-id/alias> <to-id/alias>", "Replaces the chunk you are at with the block you specify", replacechunk)));
-  registerCommand(ComPtr(new Command(parseCmd("rules"), "", "Displays server rules", sendRules)));
-  registerCommand(ComPtr(new Command(parseCmd("save save-all"), "", "Manually saves map to disc", saveMap)));
-  registerCommand(ComPtr(new Command(parseCmd("setspawn"), "", "Sets home to your current coordinates", setSpawn)));
-  registerCommand(ComPtr(new Command(parseCmd("tell msg whisper"), "<player> <message>", "Quitely tell another player something.", tell)));
-  registerCommand(ComPtr(new Command(parseCmd("time settime gettime"), "<time>", "Sets the world time. (<time> = 0-24000, 0 & 24000 = day, ~15000 = night)", time)));
-  registerCommand(ComPtr(new Command(parseCmd("tp"), "<player> [<anotherPlayer>]", "Teleport yourself to <player>'s position or <player> to <anotherPlayer>", userTeleport)));
-  registerCommand(ComPtr(new Command(parseCmd("whitelist"), "[add|remove|list|on|off|reload]", "Manages the servers whitelist", whitelist)));
-  registerCommand(ComPtr(new Command(parseCmd("world"), "<world-id>", "Moves you between worlds", userWorld)));
+  mineserver->chat.registerCommand(ComPtr(new Command(parseCmd("about"), "", "Displays server name and software version", about)));
+  mineserver->chat.registerCommand(ComPtr(new Command(parseCmd("auth"), "", "", auth)));
+  mineserver->chat.registerCommand(ComPtr(new Command(parseCmd("cuboid"), "", "Type in the command and place two blocks, it will fill the space between them", cuboid)));
+  mineserver->chat.registerCommand(ComPtr(new Command(parseCmd("dnd"), "", "Toggles Do Not Disturb mode", doNotDisturb)));
+  mineserver->chat.registerCommand(ComPtr(new Command(parseCmd("flattenchunk"), "<id/alias>", "Erases all blocks above you and changes all blocks at your Y-level to your block of choice", flattenchunk)));
+  //mineserver->chat.registerCommand(ComPtr(new Command(parseCmd("god"), "[player]", "Makes a player unable to be hurt in anyway.", god)));
+  mineserver->chat.registerCommand(ComPtr(new Command(parseCmd("gps coords"), "", "Display current coordinates", gps)));
+  //mineserver->chat.registerCommand(ComPtr(new Command(parseCmd("heal"), "[player]", "Restores yours or a players health and food.", heal)));
+  mineserver->chat.registerCommand(ComPtr(new Command(parseCmd("home spawn"), "", "Teleports you to this world's spawn location", home)));
+  mineserver->chat.registerCommand(ComPtr(new Command(parseCmd("motd"), "", "Displays the server's MOTD", sendMOTD)));
+  //mineserver->chat.registerCommand(ComPtr(new Command(parseCmd("mute"), "<player> [GLOBAL]", "Stops you from recieveing all chat from this player.", mute)));
+  mineserver->chat.registerCommand(ComPtr(new Command(parseCmd("replace"), "<from-id/alias> <to-id/alias>", "Type in the command and left-click two blocks, it will replace the selected blocks with the new blocks", replace)));
+  mineserver->chat.registerCommand(ComPtr(new Command(parseCmd("replacechunk"), "<from-id/alias> <to-id/alias>", "Replaces the chunk you are at with the block you specify", replacechunk)));
+  //mineserver->chat.registerCommand(ComPtr(new Command(parseCmd("reply r"), "<message>", "After a user send you a private message use this to respond.", reply)));
+  mineserver->chat.registerCommand(ComPtr(new Command(parseCmd("rules"), "", "Displays server rules", sendRules)));
+  mineserver->chat.registerCommand(ComPtr(new Command(parseCmd("setspawn"), "", "Sets home to your current coordinates", setSpawn)));
+  //mineserver->chat.registerCommand(ComPtr(new Command(parseCmd("unmute"), "<player> [GLOBAL]", "You will start recieveing all chat from this player.", unmute)));
+  //mineserver->chat.registerCommand(ComPtr(new Command(parseCmd("warp"), "[location|set|remove|list]", "Allows you to use, set, remove, and list warps.", warp)));
+  mineserver->chat.registerCommand(ComPtr(new Command(parseCmd("world"), "<world-id>", "Moves you between worlds", userWorld)));
 }
 
 PLUGIN_API_EXPORT void CALLCONVERSION commands_shutdown(void)
 {
-  if (mineserver->plugin.getPluginVersion(pluginName.c_str()) <= 0)
+  if (mineserver->plugin.getPluginVersion(PLUGIN_NAME.c_str()) <= 0)
   {
-    mineserver->logger.log(LOG_INFO, "plugin.commands", "commands is not loaded!");
+    mineserver->logger.log(LOG_INFO, std::string("plugin."+PLUGIN_NAME).c_str(), std::string(PLUGIN_NAME+" is not loaded!").c_str());
     return;
   }
 }
-
 
 std::deque<std::string> parseCmd(std::string cmd)
 {

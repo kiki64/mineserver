@@ -37,9 +37,11 @@
 #endif
 
 #include <stdint.h>
+#include <deque>
 
 #include "logtype.h"
 #include "configure.h"
+#include "chat.h"
 
 #ifdef WIN32
 #define PLUGIN_API_EXPORT extern "C" __declspec(dllexport)
@@ -110,7 +112,6 @@ struct user_pointer_struct
   bool (*kick)(const char* user, std::string reason);
   bool (*getItemAt)(const char* user, int slot, int* type, int* meta, int* quant);
   bool (*setItemAt)(const char* user, int slot, int type, int meta, int quant);
-
   bool (*setGameMode)(const char* user, int gameMode);
 
   void* temp[95];
@@ -122,6 +123,7 @@ struct chat_pointer_struct
   bool (*sendmsg)(const char* msg);
   bool (*sendUserlist)(const char* user);
   bool (*handleMessage)(const char* user, const char* msg);
+  void (*registerCommand)(ComPtr command);
   void* temp[100];
 };
 
@@ -207,6 +209,11 @@ struct tools_pointer_struct
   double (*uniform01)();
 };
 
+struct inventory_pointer_struct
+{
+  bool (*isValidItem)(int id);
+};
+
 struct mineserver_pointer_struct
 {
   struct map_pointer_struct map;
@@ -218,6 +225,7 @@ struct mineserver_pointer_struct
   struct mob_pointer_struct mob;
   struct permission_pointer_struct permissions;
   struct tools_pointer_struct tools;
+  struct inventory_pointer_struct inventory;
   void* temp[99];
 };
 

@@ -31,6 +31,22 @@
 #include <deque>
 #include <string>
 
+typedef void (*CommandCallback)(std::string nick, std::string command, std::deque<std::string> args);
+struct Command
+{
+  Command(std::deque<std::string> _names, std::string _arguments, std::string _description, CommandCallback _callback)
+    : names(_names),
+      arguments(_arguments),
+      description(_description),
+      callback(_callback)
+  {}
+  std::deque<std::string> names;
+  std::string arguments;
+  std::string description;
+  CommandCallback callback;
+};
+typedef std::tr1::shared_ptr<Command> ComPtr;
+
 class User;
 
 class Chat
@@ -46,6 +62,7 @@ public:
     GUESTS
   };
 
+
   Chat();
   ~Chat();
 
@@ -60,8 +77,11 @@ public:
 
   void handleCommand(User* user, std::string msg, const std::string& timeStamp);
 
-private:
+  void registerCommand(ComPtr command);
   std::deque<std::string> parseCmd(std::string cmd);
+  bool chatCommandFunction(const char* userIn, const char* cmdIn, int argc, char** argv);
+
+private:
   std::string adminPassword;
 };
 

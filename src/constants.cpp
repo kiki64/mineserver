@@ -36,7 +36,7 @@ std::map<uint8_t, DropPtr> BLOCKDROPS;
 // Get the number of items to drop for items that aren't constant
 enum {
     RAND_DROP_LAPIS, RAND_DROP_TALL_GRASS, RAND_DROP_HUGE_MUSHROOM, RAND_DROP_REDSTONE,
-    RAND_DROP_GLOWSTONE, RAND_DROP_MELON, RAND_DROP_CARROTS, RAND_DROP_POTATOES
+    RAND_DROP_GLOWSTONE, RAND_DROP_MELON, RAND_DROP_CARROT, RAND_DROP_POTATOES
 };
 int getDistribution( int type )
 {
@@ -49,7 +49,7 @@ int getDistribution( int type )
         case RAND_DROP_REDSTONE: return rand() % 5 + 4; // (4-5)
         case RAND_DROP_GLOWSTONE: return rand() % 4 + 2; // (2-4)
         case RAND_DROP_MELON: return rand() % 7 + 3; // (3-7)
-        case RAND_DROP_CARROTS: return rand() % 4 + 1; // (1-4)
+        case RAND_DROP_CARROT: return rand() % 4 + 1; // (1-4)
         case RAND_DROP_POTATOES: return rand() % 4 + 1; // (1-4)
         default : return 0;
     }
@@ -226,9 +226,10 @@ void initConstants()
   BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_COBBLESTONE_WALL, DropPtr( new Drop(BLOCK_COBBLESTONE_WALL, 10000, 1))));
   BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_FLOWER_POT, DropPtr( new Drop(ITEM_FLOWER_POT, 10000, 1))));
 
-  BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_CARROTS, DropPtr( new Drop(ITEM_CARROT, 10000, getDistribution(RAND_DROP_CARROTS)))));
+  BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_CARROT, DropPtr( new Drop(ITEM_CARROT, 10000, getDistribution(RAND_DROP_CARROT)))));
   BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_POTATOES, DropPtr( new Drop(ITEM_POTATO, 10000, getDistribution(RAND_DROP_POTATOES))))); // Can also drop an additional poisonous potato - 2% chance
   BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_WOODEN_BUTTON, DropPtr( new Drop(BLOCK_WOODEN_BUTTON, 10000, 1))));
+  BLOCKDROPS.insert(std::pair<uint8_t, DropPtr>(BLOCK_HEAD, DropPtr( new Drop(ITEM_HEAD, 10000, 1))));
 }
 
 void Drop::getDrop(int16_t& item, uint8_t& count, uint8_t& meta)

@@ -255,6 +255,11 @@ bool chat_handleMessage(const char* username, const char* message)
   return false;
 }
 
+void chat_registerCommand(ComPtr command)
+{
+  ServerInstance->chat()->registerCommand(command);
+}
+
 // MAP WRAPPER FUNCTIONS
 bool map_setTime(int timeValue)
 {
@@ -766,6 +771,7 @@ bool config_bData(const char* name)
   return ServerInstance->config()->bData(name);
 }
 
+// MOB WRAPPER FUNCTIONS
 int mob_createMob(int type)
 {
   MobPtr m = ServerInstance->mobs()->createMob();
@@ -934,6 +940,7 @@ int8_t mob_getByteMetadata(int uid, int idx)
   return data->val;
 }
 
+// PERMISSIONS WRAPPER FUNCTIONS
 bool permission_setAdmin(const char* name)
 {
   User* tempuser = User::byNick(name);
@@ -1021,6 +1028,7 @@ bool permission_isGuest(const char* name)
   return (IS_GUEST(tempuser->permissions) != 0);
 }
 
+// TOOLS WRAPPER FUNCTIONS
 int tools_uniformInt(int a, int b)
 {
   if (a < 0)
@@ -1035,6 +1043,27 @@ double tools_uniform01()
   return uniform01();
 }
 
+// INVENTORY WAPPER FUNCTIONS
+bool inventory_isValidItem( int id )
+{
+  if (id > BLOCK_FIRST)  // zero or negative items are all invalid
+  {
+    if (id >= ITEM_RECORD_FIRST && id <= ITEM_RECORD_LAST)  // records are special cased
+    {
+      return true;
+    }
+
+    if (id <= ITEM_LAST)  // high items are invalid
+    {
+        if (id <= BLOCK_LAST && id >= ITEM_FIRST)  // these are undefined blocks and items
+        {
+          return true;
+        }
+    }
+  }
+  return false;
+}
+
 void init_plugin_api(void)
 {
   plugin_api_pointers.logger.log                   = &logger_log;
@@ -1043,6 +1072,7 @@ void init_plugin_api(void)
   plugin_api_pointers.chat.sendmsgTo               = &chat_sendmsgTo;
   plugin_api_pointers.chat.sendUserlist            = &chat_sendUserlist;
   plugin_api_pointers.chat.handleMessage           = &chat_handleMessage;
+  plugin_api_pointers.chat.registerCommand         = &chat_registerCommand;
 
   plugin_api_pointers.plugin.hasPluginVersion      = &plugin_hasPluginVersion;
   plugin_api_pointers.plugin.getPluginVersion      = &plugin_getPluginVersion;
@@ -1137,4 +1167,6 @@ void init_plugin_api(void)
   
   plugin_api_pointers.tools.uniformInt             = &tools_uniformInt;
   plugin_api_pointers.tools.uniform01              = &tools_uniform01;
+
+  plugin_api_pointers.inventory.isValidItem        = &inventory_isValidItem;
 }

@@ -38,8 +38,10 @@
 #include "tools.h"
 #include "plugin.h"
 #include "utf8.h"
-
 #include "chat.h"
+
+typedef std::tr1::unordered_map<std::string, ComPtr> CommandList;
+CommandList m_Commands;
 
 Chat::Chat()
 {
@@ -108,6 +110,19 @@ std::deque<std::string> Chat::parseCmd(std::string cmd)
   }
 
   return temp;
+}
+
+void Chat::registerCommand(ComPtr command)
+{
+  // Loop thru all the words for this command
+  std::string currentWord;
+  std::deque<std::string> words = command->names;
+  while(!words.empty())
+  {
+    currentWord = words.front();
+    words.pop_front();
+    m_Commands[currentWord] = command;
+  }
 }
 
 bool Chat::handleMsg(User* user, std::string msg)
@@ -180,27 +195,132 @@ void Chat::handleCommand(User* user, std::string msg, const std::string& timeSta
     param[i] = (char*)cmd[i].c_str();
   }
 
-  // If hardcoded auth command!  TODO: Figure out if this is a command we want to support.  Finish the command with origin checks.
-  if(command == "auth" && cmd.size() >= 1 && cmd[0] == ServerInstance->config()->sData("system.admin.password") )
-  {
-      user->serverAdmin = true;
-      msg = MC_COLOR_RED + "[!] " + MC_COLOR_GREEN + "You have been authed as admin!";
-      sendMsg(user, msg, USER);
-  }
   //TODO: add checks to see if the user is privliaged.
-  else if( command == "stop" || command == "exit" )
+  if( command == "stop" || command == "exit" )
   {
       ServerInstance->stop();
   }
-  else
+  else if( command == "help" )
   {
-    runAllCallback("PlayerChatCommand",user->nick.c_str(), command.c_str(), cmd.size(), (const char**)param);
+    std::deque<std::string> args((char**)param, (char**)param+cmd.size());
+
+    CommandList* commandList = &m_Commands; // defaults
+    std::string commandColor = MC_COLOR_BLUE;
+    int commandsPerPage = 9; // 10 will fit nicely, -1 for the help title menu
+    int maxLineLength = 62; // Makes one command per line with longer lines cut and we add ...
+    int numPages = (commandList->size() + commandsPerPage - 1) / commandsPerPage;
+    std::string buffer = dtos(numPages); // Total pages
+    std::string buffer2; // Current page
+
+    if (args.size() == 0 || atoi(args.front().c_str()) != 0 )
+    {
+      if( args.size() != 0 && atoi(args.front().c_str()) != 0 && (atoi(args.front().c_str()) > numPages || atoi(args.front().c_str()) < 1 ))
+      {
+        std::string msg = MC_COLOR_RED + "Invalid Help Page Number (1-" + buffer + ")";
+        ServerInstance->chat()->sendMsg(user, msg.c_str());
+      }
+      else
+      {
+        int8_t currentPage = 1;
+        if( args.size() != 0 && atoi(args.front().c_str()) != 0 )
+        {
+          currentPage = atoi(args.front().c_str());
+        }
+        buffer2 = dtos(currentPage);
+
+        //Help Menu Title
+        std::string msg = MC_COLOR_YELLOW + "------ Help Menu ------ Page " + buffer2 + " of " + buffer + " ------";
+        ServerInstance->chat()->sendMsg(user, msg.c_str());
+
+        //List Commands
+        uint16_t count = 1;
+        for(CommandList::iterator it = commandList->begin(); it != commandList->end(); ++it)
+        {
+
+          if( count > commandsPerPage * (currentPage - 1) && count <= commandsPerPage * currentPage)
+          {
+            std::string args = it->second->arguments;
+            std::string description = it->second->description;
+            std::string msg = commandColor + CHATCMDPREFIX + it->first;
+            if( args.compare("") == 0 )
+            {
+              msg.append(": " + description);
+            }
+            else
+            {
+              msg.append(" " + args + ": " + description);
+            }
+
+            if( msg.length() > maxLineLength )
+            {
+              msg = msg.substr(0, maxLineLength);
+              msg.append("...");
+            }
+
+            ServerInstance->chat()->sendMsg(user, msg.c_str());
+          }
+
+          if( count >= commandsPerPage * currentPage )
+          {
+            break;
+          }
+
+          count++;
+        }
+      }
+    }
+    else
+    {
+      CommandList::iterator iter;
+      if ((iter = commandList->find(args.front())) != commandList->end())
+      {
+        std::string args = iter->second->arguments;
+        std::string description = iter->second->description;
+        std::string msg = commandColor + CHATCMDPREFIX + iter->first + " " + args;
+        ServerInstance->chat()->sendMsg(user, msg.c_str());
+        msg = /*MC_COLOR_YELLOW + */CHATCMDPREFIX + description;
+        ServerInstance->chat()->sendMsg(user, msg.c_str());
+      }
+      else
+      {
+        std::string msg = /*MC_COLOR_RED +*/ "Unknown Command: " + args.front();
+        ServerInstance->chat()->sendMsg(user, msg.c_str());
+      }
+    }
+  }
+  else if( !chatCommandFunction( user->nick.c_str(), command.c_str(), cmd.size(), (char**)param ) )
+  {
+    runAllCallback("PlayerChatCommand", user->nick.c_str(), command.c_str(), cmd.size(), (const char**)param);
   }
 
   delete [] param;
-
 }
 
+bool Chat::chatCommandFunction(const char* userIn, const char* cmdIn, int argc, char** argv)
+{
+  std::string user(userIn);
+  std::string command(cmdIn);
+  std::deque<std::string> cmd(argv, argv+argc);
+
+  if(command.size() == 0)
+  {
+    return false;
+  }
+
+  //ServerInstance->logger()->log(INFO, "plugin.commands", std::string(user + ": " + command).c_str());
+  printf(std::string(user + ": " + command + "\n").c_str());
+
+  // User commands
+  CommandList::iterator iter;
+  if((iter = m_Commands.find(command)) != m_Commands.end())
+  {
+    printf(iter->second->names[0].c_str());
+    iter->second->callback(user, command, cmd);
+    printf("chatCommandReturn\n");
+    return true;
+  }
+  return false;
+}
 
 void Chat::handleServerMsg(User* user, std::string msg, const std::string& timeStamp)
 {

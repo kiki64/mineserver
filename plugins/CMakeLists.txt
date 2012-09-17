@@ -18,6 +18,7 @@ set(plugins_source
   cursesui/screen.cpp
   flatpermissions/flatpermissions.cpp
   passiveMobs/passiveMobs.cpp
+  commands_vanilla/commands_vanilla.cpp
 )
 
 

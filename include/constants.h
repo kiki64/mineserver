@@ -73,12 +73,9 @@ extern void initConstants();
 extern std::map<uint8_t, DropPtr> BLOCKDROPS;
 
 // Chat prefixes
-enum
-{
-  SERVERMSGPREFIX = '%',
-  CHATCMDPREFIX   = '/',
-  ADMINCHATPREFIX = '&'
-};
+const char SERVERMSGPREFIX = '%';
+const char CHATCMDPREFIX   = '/';
+const char ADMINCHATPREFIX = '&';
 
 extern const unsigned int SERVER_CONSOLE_UID;
 
